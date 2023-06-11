@@ -51,17 +51,26 @@ void NearestCirclePoints(Capsule capsule1, Capsule capsule2, Vector2& nearest1, 
     nearest1 = NearestPoint(bot1, top1, nearest2);
 }
 
-bool CircleCircle(Circle circle1, Circle circle2)
+bool CircleCircle(Circle circle1, Circle circle2, Vector2* mtv = nullptr)
 {
-    return DistanceSqr(circle1.position, circle2.position) <=
-        powf(circle1.radius + circle2.radius, 2.0f);
+    Vector2 delta = circle2.position - circle1.position;
+    float radiiSum = circle1.radius + circle2.radius;
+    float centerDistance = Length(delta);
+    bool collision = centerDistance <= radiiSum;
+    if (collision && mtv != nullptr)
+    {
+        // Compute mtv (sum of radii - distance between centers)
+        float mtvDistance = radiiSum - centerDistance;
+        *mtv = Normalize(delta) * mtvDistance;
+    }
+    return collision;
 }
 
-bool CapsuleCapsule(Capsule capsule1, Capsule capsule2)
+bool CapsuleCapsule(Capsule capsule1, Capsule capsule2, Vector2* mtv = nullptr)
 {
     Vector2 nearest1, nearest2;
     NearestCirclePoints(capsule1, capsule2, nearest1, nearest2);
-    return CircleCircle({ nearest1, capsule1.radius }, { nearest2, capsule2.radius });
+    return CircleCircle({ nearest1, capsule1.radius }, { nearest2, capsule2.radius }, mtv);
 }
 
 void DrawCapsule(Capsule capsule, Color color)
@@ -73,8 +82,8 @@ void DrawCapsule(Capsule capsule, Color color)
 
     // Half-Length is along x because objects have the identity direction of [1, 0]
     Rectangle rec{ capsule.position.x, capsule.position.y,
-        capsule.halfLength * 2.0f, capsule.radius * 2.0f, };
-    DrawRectanglePro(rec, { capsule.halfLength, capsule.radius, },
+        capsule.halfLength * 2.0f, capsule.radius * 2.0f };
+    DrawRectanglePro(rec, { capsule.halfLength, capsule.radius },
         Angle(capsule.direction) * RAD2DEG, color);
 }
 
@@ -103,8 +112,10 @@ int main(void)
         if (IsKeyDown(KEY_Q))
             capsule1.direction = Rotate(capsule1.direction, -angularSpeed * dt * DEG2RAD);
 
-        // Capsule collision works by finding the two nearest circles and testing them 
-        bool collision = CapsuleCapsule(capsule1, capsule2);
+        // Minimum Translation Vector resolves 2 from 1
+        Vector2 mtv{};
+        bool collision = CapsuleCapsule(capsule1, capsule2, &mtv);
+        capsule2.position = capsule2.position + mtv;
         Color color = collision ? RED : GREEN;
 
         Vector2 nearest1, nearest2;
