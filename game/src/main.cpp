@@ -53,7 +53,7 @@ int main(void)
         DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
 
         rlImGuiBegin();
-        ImGui::SliderFloat2("rb.pos", &rb.pos.x, -500.0f, 500.0f);
+        ImGui::SliderFloat2("Position", &rb.pos.x, -500.0f, 500.0f);
         ImGui::SliderFloat2("Velocity", &rb.vel.x, -500.0f, 500.0f);
         ImGui::SliderFloat2("Acceleration", &rb.acc.x, -500.0f, 500.0f);
 
