@@ -9,20 +9,23 @@ struct Circle
     float radius;
 };
 
+// Capsules can be thought of as two circles with a rectangle in-between them
+// Capsule-Capsule collision works by querying the two nearest circles between capsules
 struct Capsule
 {
     Vector2 position{};
     Vector2 direction{ 1.0f, 0.0f };
     float radius;
-    float halfHeight;
+    float halfLength;
+    // Distance between position (center) and top/bot "circle"
 };
 
 void NearestCirclePoints(Capsule capsule1, Capsule capsule2, Vector2& nearest1, Vector2& nearest2)
 {
-    Vector2 top1 = capsule1.position + capsule1.direction * capsule1.halfHeight;
-    Vector2 top2 = capsule2.position + capsule2.direction * capsule2.halfHeight;
-    Vector2 bot1 = capsule1.position - capsule1.direction * capsule1.halfHeight;
-    Vector2 bot2 = capsule2.position - capsule2.direction * capsule2.halfHeight;
+    Vector2 top1 = capsule1.position + capsule1.direction * capsule1.halfLength;
+    Vector2 top2 = capsule2.position + capsule2.direction * capsule2.halfLength;
+    Vector2 bot1 = capsule1.position - capsule1.direction * capsule1.halfLength;
+    Vector2 bot2 = capsule2.position - capsule2.direction * capsule2.halfLength;
 
     Vector2 lines[4]
     {
@@ -63,23 +66,15 @@ bool CapsuleCapsule(Capsule capsule1, Capsule capsule2)
 
 void DrawCapsule(Capsule capsule, Color color)
 {
-    Vector2 top = capsule.position + capsule.direction * capsule.halfHeight;
-    Vector2 bot = capsule.position - capsule.direction * capsule.halfHeight;
+    Vector2 top = capsule.position + capsule.direction * capsule.halfLength;
+    Vector2 bot = capsule.position - capsule.direction * capsule.halfLength;
     DrawCircleV(top, capsule.radius, color);
     DrawCircleV(bot, capsule.radius, color);
 
-    Vector2 perp{ capsule.direction.y, -capsule.direction.x };
-    Vector2 leftStart = bot + perp * capsule.radius;
-    Vector2 leftEnd = leftStart + capsule.direction * capsule.halfHeight * 2.0f;
-    Vector2 rightStart = bot - perp * capsule.radius;
-    Vector2 rightEnd = rightStart + capsule.direction * capsule.halfHeight * 2.0f;
-    DrawLineEx(leftStart, leftEnd, 5.0f, color);
-    DrawLineEx(rightStart, rightEnd, 5.0f, color);
-
+    // Half-Length is along x because objects have the identity direction of [1, 0]
     Rectangle rec{ capsule.position.x, capsule.position.y,
-        capsule.halfHeight * 2.0f, capsule.radius * 2.0f, };
-
-    DrawRectanglePro(rec, { capsule.halfHeight, capsule.radius, },
+        capsule.halfLength * 2.0f, capsule.radius * 2.0f, };
+    DrawRectanglePro(rec, { capsule.halfLength, capsule.radius, },
         Angle(capsule.direction) * RAD2DEG, color);
 }
 
@@ -91,13 +86,13 @@ int main(void)
     float angularSpeed = 100.0f;    // 100 degrees per second
     Capsule capsule1;
     capsule1.radius = 25.0f;
-    capsule1.halfHeight = 50.0f;
+    capsule1.halfLength = 50.0f;
 
     Capsule capsule2;
     capsule2.position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
     capsule2.direction = Direction(90.0f * DEG2RAD);
     capsule2.radius = capsule1.radius;
-    capsule2.halfHeight = capsule1.halfHeight;
+    capsule2.halfLength = capsule1.halfLength;
 
     while (!WindowShouldClose())
     {
@@ -108,13 +103,21 @@ int main(void)
         if (IsKeyDown(KEY_Q))
             capsule1.direction = Rotate(capsule1.direction, -angularSpeed * dt * DEG2RAD);
 
+        // Capsule collision works by finding the two nearest circles and testing them 
         bool collision = CapsuleCapsule(capsule1, capsule2);
         Color color = collision ? RED : GREEN;
+
+        Vector2 nearest1, nearest2;
+        NearestCirclePoints(capsule1, capsule2, nearest1, nearest2);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawCapsule(capsule1, color);
         DrawCapsule(capsule2, color);
+        DrawCircleV(nearest1, capsule1.radius, { 0, 121, 241, 196 });
+        DrawCircleV(nearest2, capsule2.radius, { 200, 122, 255, 196 });
+        DrawText("Press E & Q to rotate, move with mouse", 10, 10, 20, GRAY);
+        DrawText("Capsules are colliding when circles are overlapping", 10, 30, 20, GRAY);
         EndDrawing();
     }
 
