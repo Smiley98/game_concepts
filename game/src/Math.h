@@ -445,7 +445,7 @@ RMAPI Vector2 MoveTowards(Vector2 v, Vector2 target, float maxDistance)
 // Rotate max radians towards the target
 RMAPI Vector2 RotateTowards(Vector2 from, Vector2 to, float maxRadians)
 {
-    float deltaRadians = SignedAngle(from, to);
+    float deltaRadians = UnsignedAngle(from, to);
     return Rotate(from, fminf(deltaRadians, maxRadians) * Sign(Cross(from, to)));
 }
 
