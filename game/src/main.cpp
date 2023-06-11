@@ -3,49 +3,68 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
+// Structure containing kinematics physics data, technically a "Particle".
+// In most game engines, a "Rigidbody" also has a mass and a collider.
+struct Rigidbody
+{
+    Vector2 pos{};
+    Vector2 vel{};
+    Vector2 acc{};
+
+    Vector2 dir{ 1.0f, 0.0f };  // right
+    float angularSpeed = 0.0f;  // radians
+};
+
+// Kinematic physics update
+void Update(Rigidbody& rb, float dt)
+{
+    rb.vel = rb.vel + rb.acc * dt;
+    rb.pos = rb.pos + rb.vel * dt + rb.acc * dt * dt * 0.5f;
+    rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    Vector2 position{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    Vector2 velocity{ 100.0f, 0.0f };
-    Vector2 acceleration{};
+    Rigidbody rb;
+    rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    rb.vel = { 100.0f, 0.0f };
 
-    Vector2 direction = Normalize(velocity);
+    // User works in degrees, physics works in radians
     float angularSpeed = 200.0f;
+    rb.angularSpeed = angularSpeed * DEG2RAD;
 
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
-        velocity = velocity + acceleration * dt;
-        position = position + velocity * dt + acceleration * dt * dt * 0.5f;
+        Update(rb, dt);
 
-        // Rotate at angular speed towards the direction of motion
-        const float frameRotation = angularSpeed * DEG2RAD * dt;
-        direction = RotateTowards(direction, Normalize(velocity), frameRotation);
-
-        if (position.x >= SCREEN_WIDTH) position.x = 0.0f;
-        else if (position.x <= 0.0f) position.x = SCREEN_WIDTH;
-        if (position.y >= SCREEN_HEIGHT) position.y = 0.0f;
-        else if (position.y <= 0.0f) position.y = SCREEN_HEIGHT;
+        if (rb.pos.x >= SCREEN_WIDTH) rb.pos.x = 0.0f;
+        else if (rb.pos.x <= 0.0f) rb.pos.x = SCREEN_WIDTH;
+        if (rb.pos.y >= SCREEN_HEIGHT) rb.pos.y = 0.0f;
+        else if (rb.pos.y <= 0.0f) rb.pos.y = SCREEN_HEIGHT;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(position, 25.0f, RED);
-        DrawLineV(position, position + direction * 100.0f, BLACK);
+        DrawCircleV(rb.pos, 25.0f, RED);
+        DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
 
         rlImGuiBegin();
-        ImGui::SliderFloat2("Position", &position.x, -500.0f, 500.0f);
-        ImGui::SliderFloat2("Velocity", &velocity.x, -500.0f, 500.0f);
-        ImGui::SliderFloat2("Acceleration", &acceleration.x, -500.0f, 500.0f);
-        ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f);
+        ImGui::SliderFloat2("rb.pos", &rb.pos.x, -500.0f, 500.0f);
+        ImGui::SliderFloat2("Velocity", &rb.vel.x, -500.0f, 500.0f);
+        ImGui::SliderFloat2("Acceleration", &rb.acc.x, -500.0f, 500.0f);
+
+        if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
+            rb.angularSpeed = angularSpeed * DEG2RAD;
+
         if (ImGui::Button("Reset"))
         {
-            position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-            velocity = {};
-            acceleration = {};
+            rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+            rb.vel = {};
+            rb.acc = {};
         }
         rlImGuiEnd();
 
