@@ -11,11 +11,14 @@ int main(void)
 
     Vector2 position{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
     Vector2 velocity{};
+    Vector2 acceleration{};
 
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
-        position = position + velocity * dt;
+        velocity = velocity + acceleration * dt;
+        position = position + velocity * dt + acceleration * dt * dt * 0.5f;
+        // "Semi-Implicit Euler Integration"
 
         if (position.x >= SCREEN_WIDTH) position.x = 0.0f;
         else if (position.x <= 0.0f) position.x = SCREEN_WIDTH;
@@ -29,10 +32,12 @@ int main(void)
         rlImGuiBegin();
         ImGui::SliderFloat2("Position", &position.x, -500.0f, 500.0f);
         ImGui::SliderFloat2("Velocity", &velocity.x, -500.0f, 500.0f);
+        ImGui::SliderFloat2("Acceleration", &acceleration.x, -500.0f, 500.0f);
         if (ImGui::Button("Reset"))
         {
             position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
             velocity = {};
+            acceleration = {};
         }
         rlImGuiEnd();
 
