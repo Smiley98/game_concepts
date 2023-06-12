@@ -42,47 +42,58 @@ Vector2 Pursue(Vector2 target, Vector2 targetVelocity, Vector2 seeker, Vector2 s
     //return Seek(target + targetVelocity * Distance(target, seeker) / Length(seekerVelocity), seeker, seekerVelocity, speed);
 }
 
+void DrawBody(Rigidbody rb, Color color)
+{
+    DrawCircleV(rb.pos, 25.0f, color);
+    DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    Rigidbody rb;
-    rb.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.9f };
-    rb.vel = { 100.0f, 0.0f };
-
-    Rigidbody target;
-    target.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.5f };
-    target.vel = { 100.0f, 0.0f };
-
-    rb.angularSpeed = 200.0f * DEG2RAD;
-    float linearSpeed = 0.0f;
+    Rigidbody pursuer, pursuerTarget, seeker, seekerTarget;
+    pursuer.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.45f };
+    pursuerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.15f };
+    seeker.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.95f };
+    seekerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.65f };
+    seeker.vel = pursuer.vel = seekerTarget.vel = pursuerTarget.vel = { 100.0f, 0.0f };
+    seeker.angularSpeed = pursuer.angularSpeed = seekerTarget.angularSpeed = pursuerTarget.angularSpeed = 200.0f * DEG2RAD;
 
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
 
-        // Pursue at 150% of the target's velocity
-        linearSpeed = Length(target.vel) * 1.5f;
-        rb.acc = Pursue(target.pos, target.vel, rb.pos, rb.vel, linearSpeed);
+        // Move at 150% of the target's velocity
+        const float speed = Length(pursuerTarget.vel) * 1.5f;
+        pursuer.acc = Pursue(pursuerTarget.pos, pursuerTarget.vel, pursuer.pos, pursuer.vel, speed);
+        seeker.acc = Seek(seekerTarget.pos, seeker.pos, seeker.vel, speed);
 
-        Update(rb, dt);
-        Update(target, dt);
+        Update(pursuer, dt);
+        Update(pursuerTarget, dt);
+        Update(seeker, dt);
+        Update(seekerTarget, dt);
 
         // Reset if target goes off screen
-        if (!CheckCollisionPointRec(target.pos, { 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT }))
+        if (!CheckCollisionPointRec(pursuerTarget.pos, { 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT }))
         {
-            target.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.5f };
-            rb.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.9f };
+            pursuer.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.45f };
+            pursuerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.15f };
+            seeker.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.95f };
+            seekerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.65f };
         }
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(rb.pos, 25.0f, BLUE);
-        DrawCircleV(target.pos, 25.0f, RED);
-        DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
-        DrawLineV(target.pos, target.pos + target.dir * 100.0f, BLACK);
+        DrawBody(pursuer, BLUE);
+        DrawBody(seeker, BLUE);
+        DrawBody(pursuerTarget, RED);
+        DrawBody(seekerTarget, RED);
+        DrawText("Pursue", 10, 5, 20, GRAY);
+        DrawText("Seek", 10, SCREEN_HEIGHT * 0.5f + 5.0f, 20, GRAY);
+        DrawLineEx({ 0.0f, SCREEN_HEIGHT * 0.5f }, { SCREEN_WIDTH, SCREEN_HEIGHT * 0.5f }, 5.0f, BLACK);
         EndDrawing();
     }
 
