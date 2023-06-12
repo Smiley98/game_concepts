@@ -28,9 +28,18 @@ Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, flo
     return Normalize(target - seekerPosition) * speed - seekerVelocity;
 }
 
-Vector2 Flee(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
+Vector2 Pursue(Vector2 target, Vector2 targetVelocity, Vector2 seeker, Vector2 seekerVelocity, float speed)
 {
-    return Normalize(seekerPosition - target) * speed - seekerVelocity;
+    // Determine how long it would take to reach the target at the current speed
+    // (Speed = Distance / Time, so Time = Distance / Speed)
+    const float travelTime = Distance(target, seeker) / Length(seekerVelocity);
+
+    // Seek towards the target's future position (assuming it maintains course)
+    Vector2 futurePosition = target + targetVelocity * travelTime;
+    return Seek(futurePosition, seeker, seekerVelocity, speed);
+
+    // Simplified form:
+    //return Seek(target + targetVelocity * Distance(target, seeker) / Length(seekerVelocity), seeker, seekerVelocity, speed);
 }
 
 int main(void)
@@ -40,49 +49,40 @@ int main(void)
     SetTargetFPS(60);
 
     Rigidbody rb;
-    rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    rb.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.9f };
     rb.vel = { 100.0f, 0.0f };
 
-    // User works in degrees, physics works in radians
-    float angularSpeed = 200.0f;
-    rb.angularSpeed = angularSpeed * DEG2RAD;
-    float linearSpeed = 500.0f;
+    Rigidbody target;
+    target.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.5f };
+    target.vel = { 100.0f, 0.0f };
 
-    // Interpolation parameter (0 = 0%, 1 = 100%, 0.25 = 25%, etc...)
-    float t = 0.0f;
+    rb.angularSpeed = 200.0f * DEG2RAD;
+    float linearSpeed = 0.0f;
 
     while (!WindowShouldClose())
     {
-        // Increase/decrease interpolation parameter with time and ensure range [0, 1]
         const float dt = GetFrameTime();
-        if (IsKeyDown(KEY_E)) t += dt;
-        if (IsKeyDown(KEY_Q)) t -= dt;
-        t = Clamp(t, 0.0f, 1.0f);
 
-        // Calculate both seek and flee forces, then interpolate between them
-        const Vector2 seek = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
-        const Vector2 flee = Flee(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
-        rb.acc = Lerp(seek, flee, t);
+        // Pursue at 150% of the target's velocity
+        linearSpeed = Length(target.vel) * 1.5f;
+        rb.acc = Pursue(target.pos, target.vel, rb.pos, rb.vel, linearSpeed);
+
         Update(rb, dt);
+        Update(target, dt);
 
-        // Reset seeker to center if it travels off screen
-        if (rb.pos.x >= SCREEN_WIDTH || rb.pos.x <= 0.0f ||
-            rb.pos.y >= SCREEN_HEIGHT || rb.pos.y <= 0.0f)
-            rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+        // Reset if target goes off screen
+        if (!CheckCollisionPointRec(target.pos, { 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT }))
+        {
+            target.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.5f };
+            rb.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.9f };
+        }
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(rb.pos, 25.0f, RED);
+        DrawCircleV(rb.pos, 25.0f, BLUE);
+        DrawCircleV(target.pos, 25.0f, RED);
         DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
-        DrawText("E/Q or drag slider to interpolate between seek and flee", 10, 10, 20, DARKGRAY);
-
-        rlImGuiBegin();
-        ImGui::SliderFloat("Interpolation", &t, 0.0f, 1.0f);
-        ImGui::SliderFloat("Linear Speed", &linearSpeed, 0.0f, 1000.0f);
-        if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
-            rb.angularSpeed = angularSpeed * DEG2RAD;
-        rlImGuiEnd();
-
+        DrawLineV(target.pos, target.pos + target.dir * 100.0f, BLACK);
         EndDrawing();
     }
 
