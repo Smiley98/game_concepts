@@ -59,23 +59,23 @@ int main(void)
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    const float orbitRadius = 250.0f;
     const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    const float orbitRadius = 250.0f;
     Rigidbody target;
     target.pos = center + Vector2{ orbitRadius, 0.0f };
 
     Rigidbody evader, fleer;
     evader.pos = fleer.pos = center;
-    fleer.angularSpeed = evader.angularSpeed = target.angularSpeed = 200.0f * DEG2RAD;
+    fleer.angularSpeed = evader.angularSpeed = target.angularSpeed = 360.0f * DEG2RAD;
 
     while (!WindowShouldClose())
     {
+        const float t = GetTime();
         const float dt = GetFrameTime();
+        const Vector2 orbit = center + Vector2{ cosf(t), sinf(t) } * orbitRadius;
 
-        Vector2 orbit = Vector2{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f } +
-            Rotate(Vector2{ 1.0f, 0.0f }, GetTime()) * 250.0f;
-
-        target.acc = Seek(orbit, target.pos, target.vel, 250.0f);
+        // Seek orbit because the target must have a velocity for evasion to work
+        target.acc = Seek(orbit, target.pos, target.vel, orbitRadius);
         Update(target, dt);
 
         // Move at 25% of the target's velocity
@@ -86,9 +86,10 @@ int main(void)
         Update(evader, dt);
         Update(fleer, dt);
 
-        // Reset if target goes off screen
-        fleer.pos = CheckCollisionPointRec(fleer.pos,
-            { 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT }) ? fleer.pos : center;
+        // Reset if bodies go off screen
+        const Rectangle screen{ 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT };
+        evader.pos = CheckCollisionPointRec(evader.pos, screen) ? evader.pos : center;
+        fleer.pos = CheckCollisionPointRec(fleer.pos, screen) ? fleer.pos : center;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
