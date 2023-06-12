@@ -23,10 +23,10 @@ void Update(Rigidbody& rb, float dt)
     rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
 }
 
-Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
+Vector2 Flee(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
 {
-    // From seeker to target with a magnitude (strength) of speed
-    Vector2 desiredVelocity = Normalize(target - seekerPosition) * speed;
+    // From target to seeker with a magnitude (strength) of speed
+    Vector2 desiredVelocity = Normalize(seekerPosition - target) * speed;
 
     // Apply difference as an acceleration
     return desiredVelocity - seekerVelocity;
@@ -50,8 +50,13 @@ int main(void)
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
-        rb.acc = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
+        rb.acc = Flee(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
         Update(rb, dt);
+
+        // Reset seeker to center if it travels off screen
+        if (rb.pos.x >= SCREEN_WIDTH || rb.pos.x <= 0.0f ||
+            rb.pos.y >= SCREEN_HEIGHT || rb.pos.y <= 0.0f)
+            rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
