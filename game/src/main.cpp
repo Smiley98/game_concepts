@@ -23,6 +23,15 @@ void Update(Rigidbody& rb, float dt)
     rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
 }
 
+Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
+{
+    // From seeker to target with a magnitude (strength) of speed
+    Vector2 desiredVelocity = Normalize(target - seekerPosition) * speed;
+
+    // Apply difference as an acceleration
+    return desiredVelocity - seekerVelocity;
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -36,16 +45,13 @@ int main(void)
     // User works in degrees, physics works in radians
     float angularSpeed = 200.0f;
     rb.angularSpeed = angularSpeed * DEG2RAD;
+    float linearSpeed = 500.0f;
 
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
+        rb.acc = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
         Update(rb, dt);
-
-        if (rb.pos.x >= SCREEN_WIDTH) rb.pos.x = 0.0f;
-        else if (rb.pos.x <= 0.0f) rb.pos.x = SCREEN_WIDTH;
-        if (rb.pos.y >= SCREEN_HEIGHT) rb.pos.y = 0.0f;
-        else if (rb.pos.y <= 0.0f) rb.pos.y = SCREEN_HEIGHT;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -53,19 +59,9 @@ int main(void)
         DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
 
         rlImGuiBegin();
-        ImGui::SliderFloat2("Position", &rb.pos.x, -500.0f, 500.0f);
-        ImGui::SliderFloat2("Velocity", &rb.vel.x, -500.0f, 500.0f);
-        ImGui::SliderFloat2("Acceleration", &rb.acc.x, -500.0f, 500.0f);
-
+        ImGui::SliderFloat("Linear Speed", &linearSpeed, 0.0f, 1000.0f);
         if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
             rb.angularSpeed = angularSpeed * DEG2RAD;
-
-        if (ImGui::Button("Reset"))
-        {
-            rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-            rb.vel = {};
-            rb.acc = {};
-        }
         rlImGuiEnd();
 
         EndDrawing();
