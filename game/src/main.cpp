@@ -28,18 +28,23 @@ Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, flo
     return Normalize(target - seekerPosition) * speed - seekerVelocity;
 }
 
-Vector2 Pursue(Vector2 target, Vector2 targetVelocity, Vector2 seeker, Vector2 seekerVelocity, float speed)
+Vector2 Flee(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
 {
-    // Determine how long it would take to reach the target at the current speed
-    // (Speed = Distance / Time, so Time = Distance / Speed)
-    const float travelTime = Distance(target, seeker) / Length(seekerVelocity);
+    return Normalize(seekerPosition - target) * speed - seekerVelocity;
+}
 
-    // Seek towards the target's future position (assuming it maintains course)
+Vector2 Evade(Vector2 target, Vector2 targetVelocity, Vector2 seeker, Vector2 seekerVelocity, float speed)
+{
+    // Determine how long it would take to reach the seeker at the current speed
+    // (Speed = Distance / Time, so Time = Distance / Speed)
+    const float travelTime = Distance(target, seeker) / Length(targetVelocity);
+
+    // Flee towards the target's future position (assuming it maintains course)
     Vector2 futurePosition = target + targetVelocity * travelTime;
-    return Seek(futurePosition, seeker, seekerVelocity, speed);
+    return Flee(futurePosition, seeker, seekerVelocity, speed);
 
     // Simplified form:
-    //return Seek(target + targetVelocity * Distance(target, seeker) / Length(seekerVelocity), seeker, seekerVelocity, speed);
+    //return Flee(target + targetVelocity * Distance(target, seeker) / Length(targetVelocity), seeker, seekerVelocity, speed);
 }
 
 void DrawBody(Rigidbody rb, Color color)
@@ -54,46 +59,44 @@ int main(void)
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    Rigidbody pursuer, pursuerTarget, seeker, seekerTarget;
-    pursuer.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.45f };
-    pursuerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.15f };
-    seeker.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.95f };
-    seekerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.65f };
-    seeker.vel = pursuer.vel = seekerTarget.vel = pursuerTarget.vel = { 100.0f, 0.0f };
-    seeker.angularSpeed = pursuer.angularSpeed = seekerTarget.angularSpeed = pursuerTarget.angularSpeed = 200.0f * DEG2RAD;
+    const float orbitRadius = 250.0f;
+    const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    Rigidbody target;
+    target.pos = center + Vector2{ orbitRadius, 0.0f };
+
+    Rigidbody evader, fleer;
+    evader.pos = fleer.pos = center;
+    fleer.angularSpeed = evader.angularSpeed = target.angularSpeed = 200.0f * DEG2RAD;
 
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
 
-        // Move at 150% of the target's velocity
-        const float speed = Length(pursuerTarget.vel) * 1.5f;
-        pursuer.acc = Pursue(pursuerTarget.pos, pursuerTarget.vel, pursuer.pos, pursuer.vel, speed);
-        seeker.acc = Seek(seekerTarget.pos, seeker.pos, seeker.vel, speed);
+        Vector2 orbit = Vector2{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f } +
+            Rotate(Vector2{ 1.0f, 0.0f }, GetTime()) * 250.0f;
 
-        Update(pursuer, dt);
-        Update(pursuerTarget, dt);
-        Update(seeker, dt);
-        Update(seekerTarget, dt);
+        target.acc = Seek(orbit, target.pos, target.vel, 250.0f);
+        Update(target, dt);
+
+        // Move at 25% of the target's velocity
+        const float speed = Length(target.vel) * 0.25f;
+        evader.acc = Evade(target.pos, target.vel, evader.pos, evader.vel, speed);
+        fleer.acc = Flee(target.pos, fleer.pos, fleer.vel, speed);
+
+        Update(evader, dt);
+        Update(fleer, dt);
 
         // Reset if target goes off screen
-        if (!CheckCollisionPointRec(pursuerTarget.pos, { 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT }))
-        {
-            pursuer.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.45f };
-            pursuerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.15f };
-            seeker.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.95f };
-            seekerTarget.pos = { SCREEN_WIDTH * 0.1f, SCREEN_HEIGHT * 0.65f };
-        }
+        fleer.pos = CheckCollisionPointRec(fleer.pos,
+            { 0.0f, 0.0f, SCREEN_WIDTH, SCREEN_HEIGHT }) ? fleer.pos : center;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawBody(pursuer, BLUE);
-        DrawBody(seeker, BLUE);
-        DrawBody(pursuerTarget, RED);
-        DrawBody(seekerTarget, RED);
-        DrawText("Pursue", 10, 5, 20, GRAY);
-        DrawText("Seek", 10, SCREEN_HEIGHT * 0.5f + 5.0f, 20, GRAY);
-        DrawLineEx({ 0.0f, SCREEN_HEIGHT * 0.5f }, { SCREEN_WIDTH, SCREEN_HEIGHT * 0.5f }, 5.0f, BLACK);
+        DrawBody(target, GREEN);
+        DrawBody(evader, PURPLE);
+        DrawBody(fleer, BLUE);
+        DrawText("Evader -- Purple", 10, 10, 20, PURPLE);
+        DrawText("Fleer -- Blue", 10, 30, 20, BLUE);
         EndDrawing();
     }
 
