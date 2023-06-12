@@ -23,13 +23,14 @@ void Update(Rigidbody& rb, float dt)
     rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
 }
 
+Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
+{
+    return Normalize(target - seekerPosition) * speed - seekerVelocity;
+}
+
 Vector2 Flee(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
 {
-    // From target to seeker with a magnitude (strength) of speed
-    Vector2 desiredVelocity = Normalize(seekerPosition - target) * speed;
-
-    // Apply difference as an acceleration
-    return desiredVelocity - seekerVelocity;
+    return Normalize(seekerPosition - target) * speed - seekerVelocity;
 }
 
 int main(void)
@@ -47,10 +48,21 @@ int main(void)
     rb.angularSpeed = angularSpeed * DEG2RAD;
     float linearSpeed = 500.0f;
 
+    // Interpolation parameter (0 = 0%, 1 = 100%, 0.25 = 25%, etc...)
+    float t = 0.0f;
+
     while (!WindowShouldClose())
     {
+        // Increase/decrease interpolation parameter with time and ensure range [0, 1]
         const float dt = GetFrameTime();
-        rb.acc = Flee(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
+        if (IsKeyDown(KEY_E)) t += dt;
+        if (IsKeyDown(KEY_Q)) t -= dt;
+        t = Clamp(t, 0.0f, 1.0f);
+
+        // Calculate both seek and flee forces, then interpolate between them
+        const Vector2 seek = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
+        const Vector2 flee = Flee(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
+        rb.acc = Lerp(seek, flee, t);
         Update(rb, dt);
 
         // Reset seeker to center if it travels off screen
@@ -62,8 +74,10 @@ int main(void)
         ClearBackground(RAYWHITE);
         DrawCircleV(rb.pos, 25.0f, RED);
         DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
+        DrawText("E/Q or drag slider to interpolate between seek and flee", 10, 10, 20, DARKGRAY);
 
         rlImGuiBegin();
+        ImGui::SliderFloat("Interpolation", &t, 0.0f, 1.0f);
         ImGui::SliderFloat("Linear Speed", &linearSpeed, 0.0f, 1000.0f);
         if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
             rb.angularSpeed = angularSpeed * DEG2RAD;
