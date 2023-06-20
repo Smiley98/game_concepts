@@ -23,6 +23,9 @@ void Update(Rigidbody& rb, float dt)
     rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
 }
 
+// Arrive = Seek + Decelerate
+float Decelerate(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity);
+
 Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
 {
     // From seeker to target with a magnitude (strength) of speed
@@ -30,6 +33,31 @@ Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, flo
 
     // Apply difference as an acceleration
     return desiredVelocity - seekerVelocity;
+}
+
+Vector2 Arrive(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity,
+    float speed)
+{
+    // Decelerate against the direction of motion
+    Vector2 deceleration = Normalize(seekerVelocity) *
+        Decelerate(target, seekerPosition, seekerVelocity);
+    return Seek(target, seekerPosition, seekerVelocity, speed) + deceleration;
+}
+
+// Given initial velocity (vi), final velocity (vf), and distance (d),
+// solve for acceleration (a) for which vf = 0 (arrival):
+// 
+// vf^2 = vi^2 + 2a(d)
+// 0^2 = vi^2 + 2a(d)
+// -vi^2 / 2d = a
+float Decelerate(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity)
+{
+    float viSqr = LengthSqr(seekerVelocity);
+    float d2 = 2.0f * Distance(seekerPosition, target);
+    return -viSqr / d2;
+
+    // Simplified equation:
+    //return -LengthSqr(seekerVelocity) / (2.0f * Distance(seekerPosition, target));
 }
 
 int main(void)
@@ -50,7 +78,7 @@ int main(void)
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
-        rb.acc = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
+        rb.acc = Arrive(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
         Update(rb, dt);
 
         BeginDrawing();
