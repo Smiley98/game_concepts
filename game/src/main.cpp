@@ -93,17 +93,33 @@ int main(void)
     while (!WindowShouldClose())
     {
         const float dt = GetFrameTime();
-        rb1.acc = Arrive(GetMousePosition(), rb1.pos, rb1.vel, linearSpeed);
-        rb2.acc = Arrive(GetMousePosition(), rb2.pos, rb2.vel, linearSpeed, slowRadius);
+        const Vector2 target = GetMousePosition();
+        rb1.acc = Arrive(target, rb1.pos, rb1.vel, linearSpeed);
+        rb2.acc = Arrive(target, rb2.pos, rb2.vel, linearSpeed, slowRadius);
         Update(rb1, dt);
         Update(rb2, dt);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(rb1.pos, 25.0f, { 230, 41, 55, 128 });
-        DrawCircleV(rb2.pos, 25.0f, { 230, 41, 55, 255 });
-        DrawLineV(rb1.pos, rb1.pos + rb1.dir * 100.0f, DARKGRAY);
+
+        // Visualize slow radius
+        if (Distance(rb2.pos, target) <= slowRadius)
+        {
+            float t = Distance(rb2.pos, target) / slowRadius;
+            Color color = RED;
+            color.a = 255.0f * t;
+            DrawCircleV(rb2.pos, slowRadius, color);
+        }
+
+        DrawCircleV(rb1.pos, 25.0f, BLUE);
+        DrawCircleV(rb2.pos, 25.0f, RED);
+        DrawLineV(rb1.pos, rb1.pos + rb1.dir * 100.0f, BLACK);
         DrawLineV(rb2.pos, rb2.pos + rb2.dir * 100.0f, BLACK);
+
+        // Blue circle is constantly being slowed down
+        // Red circle only slows down when within the slow radius
+        DrawText("Global Arrive (Blue)", 10, 10, 20, BLUE);
+        DrawText("Proximity Arrive (Red)", 10, 30, 20, RED);
 
         rlImGuiBegin();
         ImGui::SliderFloat("Slow Radius", &slowRadius, 0.0f, 1000.0f);
