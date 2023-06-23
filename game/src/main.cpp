@@ -23,13 +23,17 @@ void Update(Rigidbody& rb, float dt)
     rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
 }
 
+// Accelerate towards target
 Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
 {
-    // From seeker to target with a magnitude (strength) of speed
-    Vector2 desiredVelocity = Normalize(target - seekerPosition) * speed;
+    return Normalize(target - seekerPosition) * speed - seekerVelocity;
+}
 
-    // Apply difference as an acceleration
-    return desiredVelocity - seekerVelocity;
+// Apply the difference between target velocity and seeker velocity as acceleration
+Vector2 MatchVelocity(Vector2 targetVelocity, Vector2 seekerVelocity, float scalar = 1.0f)
+{
+    // Multiply by scalar to increase the rate at which velocities match
+    return (targetVelocity - seekerVelocity) * scalar;
 }
 
 int main(void)
@@ -38,32 +42,37 @@ int main(void)
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    Rigidbody rb;
-    rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    rb.vel = { 100.0f, 0.0f };
+    Rigidbody seeker, matcher;
+    seeker.pos = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
+    matcher.pos = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
 
-    // User works in degrees, physics works in radians
     float angularSpeed = 200.0f;
-    rb.angularSpeed = angularSpeed * DEG2RAD;
+    seeker.angularSpeed = matcher.angularSpeed = angularSpeed * DEG2RAD;
     float linearSpeed = 500.0f;
+    float scalar = 10.0f;
 
     while (!WindowShouldClose())
     {
+        // Matcher will nearly mirror seeker's movement!
         const float dt = GetFrameTime();
-        rb.acc = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
-        Update(rb, dt);
+        seeker.acc = Seek(GetMousePosition(), seeker.pos, seeker.vel, linearSpeed);
+        matcher.acc = MatchVelocity(seeker.vel, matcher.vel, scalar);
+        Update(seeker, dt);
+        Update(matcher, dt);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(rb.pos, 25.0f, RED);
-        DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
+        DrawCircleV(seeker.pos, 25.0f, RED);
+        DrawCircleV(matcher.pos, 25.0f, BLUE);
+        DrawLineV(seeker.pos, seeker.pos + seeker.dir * 100.0f, BLACK);
+        DrawLineV(matcher.pos, matcher.pos + matcher.dir * 100.0f, BLACK);
 
         rlImGuiBegin();
+        ImGui::SliderFloat("Match Strength", &linearSpeed, 1.0f, 10.0f);
         ImGui::SliderFloat("Linear Speed", &linearSpeed, 0.0f, 1000.0f);
         if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
-            rb.angularSpeed = angularSpeed * DEG2RAD;
+            seeker.angularSpeed = matcher.angularSpeed = angularSpeed * DEG2RAD;
         rlImGuiEnd();
-
         EndDrawing();
     }
 
