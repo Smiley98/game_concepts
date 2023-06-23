@@ -36,6 +36,19 @@ Vector2 MatchVelocity(Vector2 targetVelocity, Vector2 seekerVelocity, float scal
     return (targetVelocity - seekerVelocity) * scalar;
 }
 
+// Blend between chasing and matching based on distance
+Vector2 MatchArrive(
+    Vector2 targetPosition, Vector2 targetVelocity,
+    Vector2 seekerPosition, Vector2 seekerVelocity,
+    float speed, float radius, float scalar = 1.0f)
+{
+    const Vector2 seek = Seek(targetPosition, seekerPosition, seekerVelocity, speed);
+    const Vector2 matchVelocity = MatchVelocity(targetVelocity, seekerVelocity, scalar);
+    const float distance = Distance(seekerPosition, targetPosition);
+    const float t = Clamp(distance / radius, 0.0f, 1.0f);
+    return Lerp(matchVelocity, seek, t);
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -49,14 +62,16 @@ int main(void)
     float angularSpeed = 200.0f;
     seeker.angularSpeed = matcher.angularSpeed = angularSpeed * DEG2RAD;
     float linearSpeed = 500.0f;
-    float scalar = 10.0f;
+    float matchStrength = 10.0f;
+    float matchRadius = 100.0f;
 
     while (!WindowShouldClose())
     {
         // Matcher will nearly mirror seeker's movement!
         const float dt = GetFrameTime();
         seeker.acc = Seek(GetMousePosition(), seeker.pos, seeker.vel, linearSpeed);
-        matcher.acc = MatchVelocity(seeker.vel, matcher.vel, scalar);
+        matcher.acc = MatchArrive(seeker.pos, seeker.vel, matcher.pos, matcher.vel,
+            linearSpeed, matchRadius, matchStrength);
         Update(seeker, dt);
         Update(matcher, dt);
 
@@ -68,7 +83,8 @@ int main(void)
         DrawLineV(matcher.pos, matcher.pos + matcher.dir * 100.0f, BLACK);
 
         rlImGuiBegin();
-        ImGui::SliderFloat("Match Strength", &linearSpeed, 1.0f, 10.0f);
+        ImGui::SliderFloat("Match Strength", &matchStrength, 1.0f, 10.0f);
+        ImGui::SliderFloat("Match Radius", &matchRadius, 25.0f, 250.0f);
         ImGui::SliderFloat("Linear Speed", &linearSpeed, 0.0f, 1000.0f);
         if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
             seeker.angularSpeed = matcher.angularSpeed = angularSpeed * DEG2RAD;
