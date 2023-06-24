@@ -58,6 +58,25 @@ Vector2 FollowLine(const Points& points, size_t& index,
     return Seek(ahead, seekerPosition, seekerVelocity, speed);
 }
 
+void Visualize(const Points& points, size_t index, float lookAheadDistance, Vector2 position)
+{
+    const Vector2 current = points[index];
+    const Vector2 next = Next(points, index);
+    const Vector2 proj = ProjectPointLine(current, next, position);
+    const Vector2 ahead = proj + Normalize(next - current) * lookAheadDistance;
+    const float percent = Percent(current, next, proj);
+
+    DrawCircleV(current, 20.0f, RED);
+    DrawCircleV(next, 20.0f, RED);
+    DrawCircleV(proj, 10.0f, ORANGE);
+    DrawCircleV(ahead, 10.0f, GOLD);
+
+    DrawText("Red -- start & end of line segment", 10, 10, 20, RED);
+    DrawText("Orange -- seeker projected onto line", 10, 30, 20, ORANGE);
+    DrawText("Yellow -- projection + look ahead", 10, 50, 20, GOLD);
+    DrawText(TextFormat("Percentage along line: %f", percent * 100.0f), 10, 70, 20, BLUE);
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -89,11 +108,12 @@ int main(void)
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(rb.pos, 25.0f, RED);
+        DrawCircleV(rb.pos, 25.0f, BLUE);
         DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
 
         for (size_t i = 0; i < points.size(); i++)
             DrawLineEx(points[i], Next(points, i), 10.0f, GRAY);
+        Visualize(points, index, lookAheadDistance, rb.pos);
 
         rlImGuiBegin();
         ImGui::SliderFloat("Look-Ahead", &lookAheadDistance, 50.0f, 250.0f);
