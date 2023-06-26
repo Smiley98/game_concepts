@@ -63,13 +63,148 @@ void Points(std::vector<Vector2>& points, int index,
     p3 = &points[(index + 2) % n];
 }
 
+struct SamplePoint
+{
+    float t;    // Percentage along interval
+    float d;    // Distance along interval
+};
+
+using SpeedTable = std::vector<std::vector<SamplePoint>>;
+
+struct ControlledSpline
+{
+    std::vector<Vector2> points;
+    size_t point = 0;   // Outer index -- determines p0, p1, p2 p3 using points
+    size_t sample = 0;  // Inner index -- maps distance to interpolation using speedTable
+    float distance = 0.0f;
+    SpeedTable speedTable;
+};
+
+struct UncontrolledSpline
+{
+    std::vector<Vector2> points;
+    size_t point = 0;
+    float elapsed = 0.0f;
+    float duration = 0.0f;
+};
+
+// Calculate arc length of each interval along the curve to map distance to interpolation
+SpeedTable CreateSpeedTable(const std::vector<Vector2>& points, size_t samplesPerPoint = 16)
+{
+    SpeedTable speedTable;
+    for (size_t i = 0; i < points.size(); i++)
+    {
+        std::vector<SamplePoint> samples;
+        samples.push_back({ 0.0f, 0.0f });
+
+        float arcLength = 0.0f;
+        float step = 1.0f / (float)samplesPerPoint;
+
+        for (float t = step; t <= 1.0f; t += step)
+        {
+            Vector2 p0, p1, p2, p3;
+            Points(points, i, p0, p1, p2, p3);
+
+            Vector2 previous = Catmull(p0, p1, p2, p3, t - step);
+            Vector2 current = Catmull(p0, p1, p2, p3, t);
+
+            arcLength += Distance(previous, current);
+            samples.push_back({ t, arcLength });
+        }
+
+        speedTable.push_back(samples);
+    }
+    return speedTable;
+}
+
+// Convert distance to interpolation by looking up the arc length of the current interval
+float DistanceToInterpolation(const ControlledSpline& spline)
+{
+    const size_t sampleCount = spline.speedTable[0].size();
+    SamplePoint current = spline.speedTable[spline.point][spline.sample];
+    SamplePoint next = spline.speedTable[spline.point][(spline.sample + 1) % sampleCount];
+    return Lerp(current.t, next.t, (spline.distance - current.d) / (next.d - current.d));
+}
+
+// Increment sample index and point index based on distance travelled along the spline
+void Update(ControlledSpline& spline)
+{
+    const size_t sampleCount = spline.speedTable[0].size();
+    while (spline.distance > spline.speedTable[spline.point][(spline.sample + 1) % sampleCount].d)
+    {
+        if (++spline.sample >= sampleCount)
+        {
+            ++spline.point %= spline.speedTable.size();
+            spline.sample = 0;
+            spline.distance = 0.0f;
+        }
+    }
+}
+
+// Increment point index and reset elapsed if greater than duration
+void Update(UncontrolledSpline& spline)
+{
+    if (spline.elapsed >= spline.duration)
+    {
+        spline.elapsed = 0.0f;
+        ++spline.point %= spline.points.size();
+    }
+}
+
+struct Entity
+{
+    Vector2 position{};
+    Vector2 direction{ 1.0f, 0.0f };
+};
+
+void Follow(Entity& entity, ControlledSpline& spline, float speed)
+{
+    Vector2 p0, p1, p2, p3;
+
+    // Determine previous point
+    Points(spline.points, spline.point, p0, p1, p2, p3);
+    Vector2 previous = Catmull(p0, p1, p2, p3, DistanceToInterpolation(spline));
+
+    // Update distance and indices
+    spline.distance += speed;
+    Update(spline);
+
+    // Determine current point
+    Points(spline.points, spline.point, p0, p1, p2, p3);
+    Vector2 current = Catmull(p0, p1, p2, p3, DistanceToInterpolation(spline));
+
+    entity.position = current;
+    entity.direction = Normalize(current - previous);
+}
+
+void Follow(Entity& entity, UncontrolledSpline& spline, float dt)
+{
+    Vector2 p0, p1, p2, p3;
+
+    // Determine previous point
+    Points(spline.points, spline.point, p0, p1, p2, p3);
+    float tPrevious = Clamp(spline.elapsed / spline.duration, 0.0f, 1.0f);
+    Vector2 previous = Catmull(p0, p1, p2, p3, tPrevious);
+
+    // Update timer and index
+    spline.elapsed += dt;
+    Update(spline);
+
+    // Determine current point
+    Points(spline.points, spline.point, p0, p1, p2, p3);
+    float tCurrent = Clamp(spline.elapsed / spline.duration, 0.0f, 1.0f);
+    Vector2 current = Catmull(p0, p1, p2, p3, tCurrent);
+
+    entity.position = current;
+    entity.direction = Normalize(current - previous);
+}
+
 int main(void)
 {
     InitWindow(1280, 720, "Game");
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    int index = 0;
     std::vector<Vector2> points
     {
         { SCREEN_WIDTH * 0.2f, SCREEN_HEIGHT * 0.75f },
@@ -78,73 +213,51 @@ int main(void)
         { SCREEN_WIDTH * 0.8f, SCREEN_HEIGHT * 0.75f },
     };
 
-    float elapsed = 0.0f;
-    const float duration = 1.0f;
+    ControlledSpline controlledSpline;
+    controlledSpline.points = points;
+    controlledSpline.speedTable = CreateSpeedTable(points);
 
-    bool drawCurve = true;
-    bool paused = false;
+    UncontrolledSpline uncontrolledSpline;
+    uncontrolledSpline.points = points;
+    uncontrolledSpline.duration = 1.0f;
+
+    Entity controlled;
+    Entity uncontrolled;
+
+    float speed = 500;
     while (!WindowShouldClose())
     {
-        const float t = elapsed / duration;
-        if (!paused)
-        {
-            // Advance indices if time duration is exceeded
-            if (elapsed >= duration)
-            {
-                elapsed = 0.0f;
-                ++index %= points.size();
-            }
-            elapsed += GetFrameTime();
-        }
-
-        Vector2 p0, p1, p2, p3;
+        // Update entities
+        const float dt = GetFrameTime();
+        Follow(controlled, controlledSpline, speed * dt);
+        Follow(uncontrolled, uncontrolledSpline, dt);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        // Render entire spline
-        if (drawCurve)
+        // Render curve
+        for (size_t i = 0; i < points.size(); i++)
         {
-            for (size_t i = 0; i < points.size(); i++)
-            {
-                Points(points, i, p0, p1, p2, p3);
-                DrawLineCatmull(p0, p1, p2, p3, { 130, 130, 130, 64 }, 5.0f);
-                DrawCircleV(points[i], 10.0f, DARKGRAY);
-            }
+            Vector2 p0, p1, p2, p3;
+            Points(points, i, p0, p1, p2, p3);
+            DrawLineCatmull(p0, p1, p2, p3, { 130, 130, 130, 64 }, 5.0f);
+            DrawCircleV(points[i], 10.0f, DARKGRAY);
         }
 
-        // Render previous interval
-        Points(points, (index - 1 + points.size()) % points.size(), p0, p1, p2, p3);
-        DrawLineCatmull(p0, p1, p2, p3, GREEN, 5.0f, true);
-        DrawCircleV(p1, 20.0f, GREEN);
+        // Render entities
+        DrawCircleV(controlled.position, 20.0f, BLUE);
+        DrawCircleV(uncontrolled.position, 20.0f, PURPLE);
+        DrawLineV(controlled.position, controlled.position + controlled.direction * 100.0f, DARKBLUE);
+        DrawLineV(uncontrolled.position, uncontrolled.position + uncontrolled.direction * 100.0f, DARKPURPLE);
+        
+        // Render info
+        DrawText("Controlled -- Blue", 10, 10, 20, BLUE);
+        DrawText("Uncontrolled -- Purple", 10, 30, 20, PURPLE);
 
-        // Render current interval
-        Points(points, index, p0, p1, p2, p3);
-        DrawLineCatmull(p0, p1, p2, p3, BLUE, 5.0f);
-        DrawCircleV(p1, 20.0f, BLUE);
-        DrawCircleV(p2, 20.0f, BLUE);
-        DrawCircleV(Catmull(p0, p1, p2, p3, t), 20.0f, BLUE);
-
-        // Render next interval
-        Points(points, (index + 1) % points.size(), p0, p1, p2, p3);
-        DrawLineCatmull(p0, p1, p2, p3, PURPLE, 5.0f, true);
-        DrawCircleV(p2, 20.0f, PURPLE);
-
-        DrawText("Drag the sliders to see how each point affects the curve", 10, 10, 20, GRAY);
-        DrawText("Green = previous interval", 10, 30, 20, GREEN);
-        DrawText("Blue = current interval", 10, 50, 20, BLUE);
-        DrawText("Purple = next interval", 10, 70, 20, PURPLE);
-        DrawText("(Control points are previous & next intervals)", 10, 90, 20, GRAY);
-        DrawText("(End points are along the current interval)", 10, 110, 20, GRAY);
-
+        // Speed table must be regenerated if points change. Add at your own risk!
         rlImGuiBegin();
-        Vector2* cp0, * ep0, * ep1, * cp1;
-        Points(points, index, cp0, ep0, ep1, cp1);
-        ImGui::SliderFloat2("Control Point 1", (float*)cp0, 0.0f, SCREEN_WIDTH);
-        ImGui::SliderFloat2("End Point 1", (float*)ep0, 0.0f, SCREEN_WIDTH);
-        ImGui::SliderFloat2("End Point 2", (float*)ep1, 0.0f, SCREEN_WIDTH);
-        ImGui::SliderFloat2("Control Point 2", (float*)cp1, 0.0f, SCREEN_WIDTH);
-        ImGui::Checkbox("Paused? (Check before editing points)", &paused);
+        ImGui::SliderFloat("Speed", &speed, 0.0f, 1000.0f);
+        ImGui::SliderFloat("Duration", &uncontrolledSpline.duration, 0.1f, 10.0f);
         rlImGuiEnd();
         EndDrawing();
     }
