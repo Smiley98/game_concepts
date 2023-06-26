@@ -72,10 +72,10 @@ float Cost(TileType type)
     static array<float, COUNT> costs
     {
         0.0f,   // AIR
-        10.0f,  // GRASS
-        25.0f,  // WATER
-        50.0f,  // MUD
-        100.0f, // MOUNTAIN
+            10.0f,  // GRASS
+            25.0f,  // WATER
+            50.0f,  // MUD
+            100.0f, // MOUNTAIN
     };
 
     return costs[type];
@@ -262,8 +262,13 @@ int main(void)
 
     Cell start{ 1, 1 };
     Cell goal{ 8, 8 };
+    size_t index = 0;
     bool manhattan = true;
+    bool drawScores = false;
     vector<Cell> path = FindPath(start, goal, map, manhattan);
+
+    float elapsed = 0.0f;
+    float duration = 1.0f;
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sunshine");
     rlImGuiSetup(true);
@@ -271,9 +276,25 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        //Determine position & direction by interpolating between current and next tiles
+        const float t = elapsed / duration;
+        const Cell& current = path[index];
+        const Cell& next = path[(index + 1) % path.size()];
+        const Vector2 position = Lerp(TileCenter(current), TileCenter(next), t);
+        const Vector2 direction = Normalize(TileCenter(next) - TileCenter(current));
+
+        // Increment index if elapsed is greater than duration
+        if (elapsed >= duration)
+        {
+            elapsed = 0.0f;
+            ++index %= path.size();
+        }
+        elapsed += GetFrameTime();
+
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
+        // Render tiles
         for (int row = 0; row < TILE_COUNT; row++)
         {
             for (int col = 0; col < TILE_COUNT; col++)
@@ -283,22 +304,30 @@ int main(void)
             }
         }
 
-        Vector2 cursor = GetMousePosition();
-        Cell cursorTile = ScreenToTile(cursor);
-
+        // Render path
         for (const Cell& cell : path)
-            DrawTile(cell, RED);
+            DrawTile(cell, { 230, 41, 55, 128 });
 
-        DrawTile(cursorTile, GRAY);
+        // Render start, goal, position along path, and cursor
         DrawTile(start, DARKBLUE);
         DrawTile(goal, SKYBLUE);
+        DrawCircleV(position, 20.0f, GREEN);
+        DrawLineV(position, position + direction * 100.0f, DARKGREEN);
+        DrawTile(ScreenToTile(GetMousePosition()), GRAY);
 
         rlImGuiBegin();
         bool change = false;
         change |= ImGui::SliderInt2("Start", &start.col, 0, TILE_COUNT - 1);
         change |= ImGui::SliderInt2("Goal", &goal.col, 0, TILE_COUNT - 1);
         change |= ImGui::Checkbox("Toggle Manhattan", &manhattan);
-        if (change) path = FindPath(start, goal, map, manhattan);
+        ImGui::Checkbox("Toggle Scores", &drawScores);
+        if (change)
+        {
+            path = FindPath(start, goal, map, manhattan);
+            index = 0;
+            elapsed = 0.0f;
+        }
+        ImGui::SliderFloat("Duration", &duration, 0.1f, 2.5f);
         rlImGuiEnd();
         EndDrawing();
     }
