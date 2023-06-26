@@ -74,25 +74,22 @@ void DrawTile(Cell cell, TileType type)
 
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sunshine");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
     array<array<size_t, TILE_COUNT>, TILE_COUNT> tiles
     {
         array<size_t, TILE_COUNT>{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 1, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 1, 1, 4, 4, 4, 0 },
-            array<size_t, TILE_COUNT>{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 1, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 2, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 3, 3, 1, 1, 1, 4, 4, 4, 0 },
+        array<size_t, TILE_COUNT>{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     };
-
-    Cell start{ 1, 1 };
-    Cell goal{ 8, 8 };
 
     while (!WindowShouldClose())
     {
@@ -103,16 +100,11 @@ int main(void)
         {
             for (int col = 0; col < TILE_COUNT; col++)
             {
-                // TODO -- calculate cost of each tile to the goal tile
                 DrawTile({ col, row }, (TileType)tiles[row][col]);
-                Vector2 texPos = TileCenter({ col, row });
-                DrawText("69", texPos.x, texPos.y, 10, MAROON);
             }
         }
-        DrawTile(ScreenToTile(GetMousePosition()), RED);
-        DrawTile(start, DARKBLUE);
-        DrawTile(goal, SKYBLUE);
 
+        DrawTile(ScreenToTile(GetMousePosition()), RED);
         EndDrawing();
     }
 
