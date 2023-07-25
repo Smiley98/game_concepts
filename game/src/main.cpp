@@ -1,8 +1,10 @@
 #include "rlImGui.h"
 #include "Math.h"
-#include <algorithm>
+#include <array>
+#include <vector>
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
+using namespace std;
 
 bool LineCircle(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, float circleRadius)
 {
@@ -10,9 +12,16 @@ bool LineCircle(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, floa
     return DistanceSqr(nearest, circlePosition) <= circleRadius * circleRadius;
 }
 
+struct Circle
+{
+    Vector2 position;
+    float radius;
+};
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sunshine");
+    rlImGuiSetup(true);
     SetTargetFPS(60);
 
     Vector2 playerPosition{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
@@ -20,12 +29,18 @@ int main(void)
     float playerSpeed = 250.0f;
     float playerRotationSpeed = 250.0f * DEG2RAD;
     float playerLength = 250.0f;
+    float playerRadius = 20.0f;
+    float viewDistance = 1000.0f;
 
-    Vector2 targetPosition{ SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.25f };
-    float targetRadius = 25.0f;
+    Vector2 targetPosition{ SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.75f };
 
-    Vector2 obstaclePosition = Lerp(playerPosition, targetPosition, 0.5f);
-    float obstacleRadius = 35.0f;
+    array<Circle, 5> obstacles{};
+    for (Circle& obstacle : obstacles)
+    {
+        float maxRadius = 50.0f;
+        obstacle.position = { Random(maxRadius, SCREEN_WIDTH - maxRadius), Random(maxRadius, SCREEN_HEIGHT - maxRadius) };
+        obstacle.radius = Random(5.0f, maxRadius);
+    }
 
     while (!WindowShouldClose())
     {
@@ -50,30 +65,50 @@ int main(void)
             playerDirection = Rotate(playerDirection, -playerRotationDelta);
         }
 
-        Vector2 playerEnd = playerPosition + playerDirection * playerLength;
-        bool targetCollision = LineCircle(playerPosition, playerEnd, targetPosition, targetRadius);
-        bool obstacleCollision = LineCircle(playerPosition, playerEnd, obstaclePosition, obstacleRadius);
+        Vector2 targetEnd = targetPosition + Normalize(playerPosition - targetPosition) * viewDistance;
+        bool playerVisible = LineCircle(targetPosition, targetEnd, playerPosition, playerRadius);
 
-        // We're guaranteed to see the target if there's no obstacle collision,
-        // So only do distance comparison if there's an obstacle collision (and target collision)
-        // Calculating the exact points of intersection is expensive, so approximate distance using target & obstacle positions
-        bool targetVisible = targetCollision;
-        if (obstacleCollision && targetCollision)
+        // Only check obstacles if the player is within the target's view-distance (proximity radius)
+        if (playerVisible)
         {
-            float targetDistance = Distance(playerPosition, targetPosition);
-            float obstacleDistance = Distance(playerPosition, obstaclePosition);
-            targetVisible = targetDistance < obstacleDistance;
+            vector<Vector2> intersections;
+            for (const Circle& obstacle : obstacles)
+            {
+                // Store the obstacle's position if the obstacle is intersecting with the target's ray
+                if (LineCircle(targetPosition, targetEnd, obstacle.position, obstacle.radius))
+                    intersections.push_back(obstacle.position);
+            }
+
+            for (Vector2 poi : intersections)
+            {
+                if (Distance(targetPosition, playerPosition) > Distance(targetPosition, poi))
+                {
+                    playerVisible = false;
+                    break;
+                }
+            }
         }
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawLineV(playerPosition, playerEnd, BLUE);
-        DrawCircleV(playerPosition, 25.0f, BLUE);
-        DrawCircleV(targetPosition, targetRadius, targetVisible ? RED : GREEN);
-        DrawCircleV(obstaclePosition, obstacleRadius, GRAY);
+
+        DrawCircleV(targetPosition, playerRadius, playerVisible ? GREEN : RED);
+        DrawLineV(targetPosition, targetEnd, playerVisible ? GREEN : RED);
+
+        DrawCircleV(playerPosition, playerRadius, BLUE);
+        DrawLineV(playerPosition, playerPosition + playerDirection * playerLength, DARKBLUE);
+
+        for (const Circle& obstacle : obstacles)
+            DrawCircleV(obstacle.position, obstacle.radius, GRAY);
+
+        rlImGuiBegin();
+        ImGui::SliderFloat("View Distance", &viewDistance, 10.0f, 1250.0f);
+        rlImGuiEnd();
+
         EndDrawing();
     }
 
+    rlImGuiShutdown();
     CloseWindow();
     return 0;
 }
