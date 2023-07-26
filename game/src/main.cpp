@@ -1,6 +1,5 @@
 #include "rlImGui.h"
 #include "Math.h"
-#include <array>
 #include <vector>
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -18,6 +17,30 @@ struct Circle
     float radius;
 };
 
+bool IsVisible(Vector2 viewer, float viewDistance, Vector2 target, float targetRadius, const vector<Circle>& obstacles)
+{
+    Vector2 viewerEnd = viewer + Normalize(target - viewer) * viewDistance;
+    if (LineCircle(viewer, viewerEnd, target, targetRadius))
+    {
+        vector<Vector2> intersections;
+        for (const Circle& obstacle : obstacles)
+        {
+            if (LineCircle(viewer, viewerEnd, obstacle.position, obstacle.radius))
+                intersections.push_back(obstacle.position);
+        }
+
+        // Optimization: compare squared distances instead to avoid (expensive) square-root calculations!
+        float targetDistance = DistanceSqr(viewer, target);
+        for (Vector2 poi : intersections)
+        {
+            if (DistanceSqr(viewer, poi) < targetDistance)
+                return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sunshine");
@@ -33,8 +56,9 @@ int main(void)
     float viewDistance = 1000.0f;
 
     Vector2 targetPosition{ SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.75f };
+    float targetRadius = playerRadius;
 
-    array<Circle, 5> obstacles{};
+    vector<Circle> obstacles(5);
     for (Circle& obstacle : obstacles)
     {
         float maxRadius = 50.0f;
@@ -64,36 +88,13 @@ int main(void)
         {
             playerDirection = Rotate(playerDirection, -playerRotationDelta);
         }
-
-        Vector2 targetEnd = targetPosition + Normalize(playerPosition - targetPosition) * viewDistance;
-        bool playerVisible = LineCircle(targetPosition, targetEnd, playerPosition, playerRadius);
-
-        // Only check obstacles if the player is within the target's view-distance (proximity radius)
-        if (playerVisible)
-        {
-            vector<Vector2> intersections;
-            for (const Circle& obstacle : obstacles)
-            {
-                // Store the obstacle's position if the obstacle is intersecting with the target's ray
-                if (LineCircle(targetPosition, targetEnd, obstacle.position, obstacle.radius))
-                    intersections.push_back(obstacle.position);
-            }
-
-            for (Vector2 poi : intersections)
-            {
-                if (Distance(targetPosition, playerPosition) > Distance(targetPosition, poi))
-                {
-                    playerVisible = false;
-                    break;
-                }
-            }
-        }
+        bool playerVisible = IsVisible(playerPosition, viewDistance, targetPosition, targetRadius, obstacles);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
         DrawCircleV(targetPosition, playerRadius, playerVisible ? GREEN : RED);
-        DrawLineV(targetPosition, targetEnd, playerVisible ? GREEN : RED);
+        DrawLineV(targetPosition, targetPosition + Normalize(playerPosition - targetPosition) * viewDistance, playerVisible ? GREEN : RED);
 
         DrawCircleV(playerPosition, playerRadius, BLUE);
         DrawLineV(playerPosition, playerPosition + playerDirection * playerLength, DARKBLUE);
