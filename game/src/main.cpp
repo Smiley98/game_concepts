@@ -9,17 +9,23 @@ constexpr int TILE_WIDTH = SCREEN_WIDTH / TILE_COUNT;
 constexpr int TILE_HEIGHT = SCREEN_HEIGHT / TILE_COUNT;
 using namespace std;
 
-bool LineCircle(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, float circleRadius)
-{
-    Vector2 nearest = ProjectPointLine(lineStart, lineEnd, circlePosition);
-    return DistanceSqr(nearest, circlePosition) <= circleRadius * circleRadius;
-}
-
 struct Circle
 {
     Vector2 position;
     float radius;
 };
+
+struct Tile
+{
+    Vector2 position;
+    Color color;
+};
+
+bool LineCircle(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, float circleRadius)
+{
+    Vector2 nearest = ProjectPointLine(lineStart, lineEnd, circlePosition);
+    return DistanceSqr(nearest, circlePosition) <= circleRadius * circleRadius;
+}
 
 bool IsVisible(Vector2 viewer, float viewDistance, Vector2 target, float targetRadius, const vector<Circle>& obstacles)
 {
@@ -70,12 +76,12 @@ int main(void)
     }
 
     float tileLength = 250.0f;
-    array<array<Vector2, TILE_COUNT>, TILE_COUNT> tiles{};
+    array<array<Tile, TILE_COUNT>, TILE_COUNT> tiles{};
     for (size_t row = 0; row < TILE_COUNT; row++)
     {
         for (size_t col = 0; col < TILE_COUNT; col++)
         {
-            tiles[row][col] = { (float)col * TILE_WIDTH, (float)row * TILE_HEIGHT };
+            tiles[row][col].position = { (float)col * TILE_WIDTH, (float)row * TILE_HEIGHT };
         }
     }
 
@@ -102,13 +108,12 @@ int main(void)
             playerDirection = Rotate(playerDirection, -playerRotationDelta);
         }
 
-        BeginDrawing();
-        ClearBackground(RAYWHITE);
         for (size_t row = 0; row < TILE_COUNT; row++)
         {
             for (size_t col = 0; col < TILE_COUNT; col++)
             {
-                Vector2 tileStart{ tiles[row][col].x + TILE_WIDTH * 0.5f, tiles[row][col].y + TILE_HEIGHT * 0.5f };
+                Tile& tile = tiles[row][col];
+                Vector2 tileStart{ tile.position.x + TILE_WIDTH * 0.5f, tile.position.y + TILE_HEIGHT * 0.5f };
                 bool playerVisible = IsVisible(tileStart, tileLength, playerPosition, playerRadius, obstacles);
                 bool targetVisible = IsVisible(tileStart, tileLength, targetPosition, targetRadius, obstacles);
 
@@ -119,14 +124,23 @@ int main(void)
                     color = DARKBLUE;
                 else if (targetVisible)
                     color = DARKPURPLE;
-                DrawRectangleV(tiles[row][col], { TILE_WIDTH, TILE_HEIGHT }, color);
+                tile.color = color;
+            }
+        }
+
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        for (size_t row = 0; row < TILE_COUNT; row++)
+        {
+            for (size_t col = 0; col < TILE_COUNT; col++)
+            {
+                DrawRectangleV(tiles[row][col].position, { TILE_WIDTH, TILE_HEIGHT }, tiles[row][col].color);
             }
         }
 
         DrawLineV(playerPosition, playerPosition + playerDirection * playerLength, BLUE);
         DrawCircleV(playerPosition, playerRadius, BLUE);
         DrawCircleV(targetPosition, targetRadius, PURPLE);
-
         for (const Circle& obstacle : obstacles)
             DrawCircleV(obstacle.position, obstacle.radius, ORANGE);
 
