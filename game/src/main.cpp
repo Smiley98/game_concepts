@@ -3,6 +3,14 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
+// Project circle-position onto line segment, then perform a point-circle collision check with the projected point!
+bool LineCircle(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, float circleRadius)
+{
+    Vector2 nearest = ProjectPointLine(lineStart, lineEnd, circlePosition);
+    return DistanceSqr(nearest, circlePosition) <= circleRadius * circleRadius;
+    // More optimal to compare squared distance instead of using a more expensive square-root calculation!
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -13,15 +21,9 @@ int main(void)
     float length = 500.0f;
     float thickness = 5.0f;
 
-    Vector2 start1{ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.25f };
-    Vector2 end1{ SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.75f };
-
     while (!WindowShouldClose())
     {
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-            start1 = GetMousePosition();
-        if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
-            end1 = GetMousePosition();
+        Vector2 circlePosition = GetMousePosition();
 
         float rotation = 250.0f * DEG2RAD * GetFrameTime();
         if (IsKeyDown(KEY_E))
@@ -29,22 +31,22 @@ int main(void)
         if (IsKeyDown(KEY_Q))
             direction = Rotate(direction, -rotation);
 
-        Vector2 start2 = center + direction * length * 0.5f;
-        Vector2 end2 = center + direction * length * -0.5f;
+        Vector2 lineStart = center + direction * length * 0.5f;
+        Vector2 lineEnd = center + direction * length * -0.5f;
 
-        // Tunnel into the CheckCollisionLines function to uncover the math behind line-line intersection!
-        Vector2 poi{};
-        bool collision = CheckCollisionLines(start1, end1, start2, end2, &poi);
+        // Project circle-position onto the line segment
+        Vector2 projection = ProjectPointLine(lineStart, lineEnd, circlePosition);
+
+        bool collision = LineCircle(lineStart, lineEnd, circlePosition, 20.0f);
         Color color = collision ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawLineEx(start1, end1, thickness, color);
-        DrawLineEx(start2, end2, thickness, color);
-        if (collision)
-            DrawCircleV(poi, 10.0f, GRAY);
-        DrawText("Left & right click to set line 1 start & end", 10, 10, 20, GRAY);
-        DrawText("Hold E & Q to rotate line 2 clockwise/counter-clockwise", 10, 30, 20, GRAY);
+        DrawCircleV(circlePosition, 20.0f, color);
+        DrawCircleV(projection, 10.0f, GRAY);
+        DrawLineEx(lineStart, lineEnd, thickness, color);
+        DrawText("Move the circle with your mouse.", 10, 10, 20, GRAY);
+        DrawText("Hold E & Q to rotate the line clockwise/counter-clockwise.", 10, 30, 20, GRAY);
         EndDrawing();
     }
 
