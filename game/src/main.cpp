@@ -3,53 +3,51 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-bool CircleCircle(Vector2 position1, Vector2 position2, float radius1, float radius2)
-{
-    return Distance(position1, position2) <= radius1 + radius2;
-}
-
 int main(void)
 {
-    InitWindow(1280, 720, "Game");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    const float radius = 50.0f;
+    Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    Vector2 direction{ 1.0f, 0.0f };
+    float length = 500.0f;
+    float thickness = 5.0f;
+
+    Vector2 start1{ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.25f };
+    Vector2 end1{ SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.75f };
 
     while (!WindowShouldClose())
     {
-        const Vector2 cursor = GetMousePosition();
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            start1 = GetMousePosition();
+        if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+            end1 = GetMousePosition();
 
-        const bool collision = CircleCircle(cursor, center, radius, radius);
-        const Color color = collision ? RED : GREEN;
+        float rotation = 250.0f * DEG2RAD * GetFrameTime();
+        if (IsKeyDown(KEY_E))
+            direction = Rotate(direction, rotation);
+        if (IsKeyDown(KEY_Q))
+            direction = Rotate(direction, -rotation);
 
-        const float radiiSum = radius + radius;
-        const float distance = Distance(cursor, center);
+        Vector2 start2 = center + direction * length * 0.5f;
+        Vector2 end2 = center + direction * length * -0.5f;
+
+        // Tunnel into the CheckCollisionLines function to uncover the math behind line-line intersection!
+        Vector2 poi{};
+        bool collision = CheckCollisionLines(start1, end1, start2, end2, &poi);
+        Color color = collision ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-
-        DrawCircleV(center, radius, color);
-        DrawCircleV(cursor, radius, color);
-
-        const float thickness = 5.0f;
-        Vector2 start{ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.75f };
-        DrawLineEx(start, start + Vector2{ 1.0f, 0.0f } * radiiSum, thickness, BLUE);
-        start.y += thickness;
-        DrawLineEx(start, start + Vector2{ 1.0f, 0.0f } * distance, thickness, PURPLE);
-
-        DrawText(TextFormat("Radii Sum: %f", radiiSum), 10, 10, 20, BLUE);
-        DrawText(TextFormat("Distance: %f", distance), 10, 30, 20, PURPLE);
-
+        DrawLineEx(start1, end1, thickness, color);
+        DrawLineEx(start2, end2, thickness, color);
+        if (collision)
+            DrawCircleV(poi, 10.0f, GRAY);
+        DrawText("Left & right click to set line 1 start & end", 10, 10, 20, GRAY);
+        DrawText("Hold E & Q to rotate line 2 clockwise/counter-clockwise", 10, 30, 20, GRAY);
         EndDrawing();
     }
 
     CloseWindow();
     return 0;
 }
-
-// Optimization -- square distance and radii to remove square-root from calculation
-//bool CircleCircle(Vector2 position1, Vector2 position2, float radius1, float radius2)
-//{
-//    return DistanceSqr(position1, position2) <= powf((radius1 + radius2), 2.0f);
-//}
