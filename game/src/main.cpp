@@ -77,7 +77,7 @@ bool LineCircle2(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, flo
     hit1.hit = t1 >= 0.0f && t1 <= 1.0f;
     hit2.hit = t2 >= 0.0f && t2 <= 1.0f;
 
-    return true;
+    return hit1.hit || hit2.hit;
 }
 
 int main(void)
@@ -85,36 +85,36 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    Vector2 direction{ 1.0f, 0.0f };
-    float length = 500.0f;
-    float thickness = 5.0f;
-    float radius = 20.0f;
+    Vector2 screenCenter{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    Vector2 lineDirection{ 1.0f, 0.0f };
+    float lineLength = 500.0f;
 
     HideCursor();
     while (!WindowShouldClose())
     {
         Vector2 circlePosition = GetMousePosition();
+        float circleRadius = 20.0f;
 
         float rotation = 250.0f * DEG2RAD * GetFrameTime();
         if (IsKeyDown(KEY_E))
-            direction = Rotate(direction, rotation);
+            lineDirection = Rotate(lineDirection, rotation);
         if (IsKeyDown(KEY_Q))
-            direction = Rotate(direction, -rotation);
+            lineDirection = Rotate(lineDirection, -rotation);
 
-        Vector2 lineStart = center + direction * length * 0.5f;
-        Vector2 lineEnd = center + direction * length * -0.5f;
+        Vector2 lineStart = screenCenter + lineDirection * lineLength * 0.5f;
+        Vector2 lineEnd = screenCenter + lineDirection * lineLength * -0.5f;
 
         Hit hit1, hit2;
-        bool collision = LineCircle2(lineStart, lineEnd, circlePosition, radius, hit1, hit2);
+        //bool collision = LineCircle1(lineStart, lineEnd, circlePosition, circleRadius, hit1, hit2);
+        // Geometric solution is inaccurate near edges, so the analytical solution is prefered.
+        bool collision = LineCircle2(lineStart, lineEnd, circlePosition, circleRadius, hit1, hit2);
         Color color = collision ? RED : GREEN;
-        //bool collision = LineCircle1(lineStart, lineEnd, circlePosition, radius, hit1, hit2);
-        // This gets a little glitchy around the edges, so the analytical solution is prefered.
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawLineEx(lineStart, lineEnd, 1.0f, color);
-        DrawCircleV(circlePosition, radius, color);
+        DrawLineEx(lineStart, lineEnd, 5.0f, color);
+        DrawCircleV(circlePosition, circleRadius, color);
+        DrawCircleV(ProjectPointLine(lineStart, lineEnd, circlePosition), 5.0f, GRAY);
         if (collision)
         {
             if (hit1.hit)
@@ -124,6 +124,8 @@ int main(void)
         }
         DrawText("Move the circle with your mouse.", 10, 10, 20, GRAY);
         DrawText("Hold E & Q to rotate the line clockwise/counter-clockwise.", 10, 30, 20, GRAY);
+        DrawText("Circle-projection in grey, points of intersection in orange.", 10, 50, 20, GRAY);
+
         EndDrawing();
     }
 
