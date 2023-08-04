@@ -97,7 +97,7 @@ typedef struct float16 {
 //----------------------------------------------------------------------------------
 
 // Random value between min and max (can be negative)
-RMAPI inline float Random(float min, float max)
+RMAPI float Random(float min, float max)
 {
     return min + (rand() / ((float)RAND_MAX / (max - min)));
 }
@@ -322,8 +322,8 @@ RMAPI Vector2 Project(Vector2 v1, Vector2 v2)
     return { t * v2.x, t * v2.y };
 }
 
-// Returns the point on line AB nearest to point P
-RMAPI Vector2 NearestPoint(Vector2 A, Vector2 B, Vector2 P)
+// Projects point P onto line AB
+RMAPI Vector2 ProjectPointLine(Vector2 A, Vector2 B, Vector2 P)
 {
     Vector2 AB = Subtract(B, A);
     float t = Dot(Subtract(P, A), AB) / Dot(AB, AB);
@@ -668,7 +668,7 @@ RMAPI Vector3 Project(Vector3 v1, Vector3 v2)
 }
 
 // Returns the point on line AB nearest to point P
-RMAPI Vector3 NearestPoint(Vector3 A, Vector3 B, Vector3 P)
+RMAPI Vector3 ProjectPointLine(Vector3 A, Vector3 B, Vector3 P)
 {
     Vector3 AB = Subtract(B, A);
     float t = Dot(Subtract(P, A), AB) / Dot(AB, AB);
