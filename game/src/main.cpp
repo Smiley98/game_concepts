@@ -28,6 +28,32 @@ std::vector<Vector2> Hexagon(float margin)
     };
 }
 
+// True if distance between point and circle-center is less than the circle's radius
+//bool PointCircle(Vector2 point, Vector2 circlePosition, float circleRadius)
+//{
+//    return DistanceSqr(point, circlePosition) <= circleRadius * circleRadius;
+//}
+
+// True of the distance between the circle and the circle's projection onto the line is less than the circle's radius
+bool LineCircle(Vector2 lineStart, Vector2 lineEnd, Vector2 circlePosition, float circleRadius)
+{
+    Vector2 nearest = ProjectPointLine(lineStart, lineEnd, circlePosition);
+    return DistanceSqr(nearest, circlePosition) <= circleRadius * circleRadius;
+}
+
+// Do line-circle test for all lines, then do a point-polygon test to check for containment
+bool CirclePolygon(Vector2 circlePosition, float circleRadius, const std::vector<Vector2>& polygon)
+{
+    for (size_t i = 0; i < polygon.size() - 1; i++)
+    {
+        Vector2 vc = polygon[i];        // "current vertex"
+        Vector2 vn = polygon[i + 1];    // "next vertex"
+        if (LineCircle(vc, vn, circlePosition, circleRadius))
+            return true;
+    }
+    return CheckCollisionPointPoly(circlePosition, const_cast<std::vector<Vector2>&>(polygon).data(), polygon.size());
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -36,22 +62,23 @@ int main(void)
 
     float margin = 0.35f;
     std::vector<Vector2> points = Hexagon(margin);
+    float radius = 25.0f;
 
     while (!WindowShouldClose())
     {
-        // Tunnel into this function to see the math, and click the web-link to visit an excellent website!
-        bool collision = CheckCollisionPointPoly(GetMousePosition(), points.data(), points.size());
+        bool collision = CirclePolygon(GetMousePosition(), radius, points);
         Color color = collision ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(GetMousePosition(), 5.0f, DARKGRAY);
+        DrawCircleV(GetMousePosition(), radius, color);
         DrawLineStrip(points.data(), points.size(), color);
         rlImGuiBegin();
         if (ImGui::SliderFloat("Polygon Margin", &margin, 0.0f, 1.0f))
         {
             points = Hexagon(margin);
         }
+        ImGui::SliderFloat("Circle Radius", &radius, 1.0f, 50.0f);
         rlImGuiEnd();
         EndDrawing();
     }
