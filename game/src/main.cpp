@@ -13,6 +13,11 @@ struct Transform2
     float scale = 1.0f;
 };
 
+void Apply(const Transform2& transform, Vector2& point)
+{
+    point = Rotate((point * transform.scale), transform.rotation) + transform.translation;
+}
+
 void Apply(const Transform2& transform, Points& points)
 {
     for (Vector2& point : points)
@@ -24,17 +29,14 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    // Define our polygon relative to the origin [0, 0], then translate/rotate/scale accordingly!
-    Points hexagon
+    Points polygon
     {
-        { -0.5f, -0.33f },  // top left
-        {  0.0f, -1.66f },  // top middle
-        {  0.5f, -0.33f },  // top right
-        {  0.5f,  0.33f },  // bottom left
-        {  0.0f,  1.66f },  // bottom middle
-        { -0.5f,  0.33f },  // bottom right
-        { -0.5f, -0.33f }   // connect end to start
-        // (necessary for existing collsion & rendering functions)
+        { 1.0f, -1.0f },
+        { 2.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { -1.0f, 1.0f },
+        { -1.0f, -1.0f },
+        { 1.0f, -1.0f },
     };
 
     Transform2 transform;
@@ -51,19 +53,20 @@ int main(void)
         float rotationDelta = rotationSpeed * dt;
         float scaleDelta = scaleSpeed * dt;
 
+        // Decrease/increase scale
         if (IsKeyDown(KEY_LEFT_SHIFT))
             transform.scale -= scaleDelta;
         if (IsKeyDown(KEY_SPACE))
             transform.scale += scaleDelta;
 
+        // Rotate counter-clockwise/clockwise
         if (IsKeyDown(KEY_Q))
             transform.rotation -= rotationDelta;
         if (IsKeyDown(KEY_E))
             transform.rotation += rotationDelta;
 
-        // By default, directions are relative to the horizontal,
-        // so subtract 90 degrees to rotate relative to the vertical
-        Vector2 forward = Direction(transform.rotation - 90.0f * DEG2RAD);
+        // Convert rotation to direction so it can be applied to translation
+        Vector2 forward = Direction(transform.rotation);
         if (IsKeyDown(KEY_W))
             transform.translation = transform.translation + forward * translationDelta;
         if (IsKeyDown(KEY_S))
@@ -76,8 +79,10 @@ int main(void)
         if (IsKeyDown(KEY_D))
             transform.translation = transform.translation + right * translationDelta;
 
-        Points points = hexagon;
+        Points points = polygon;
         Apply(transform, points);
+        Vector2 origin{};
+        Apply(transform, origin);
 
         Vector2 mouse = GetMousePosition();
         bool collision = CheckCollisionPointPoly(mouse, points.data(), points.size());
@@ -86,7 +91,13 @@ int main(void)
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawCircleV(mouse, 5.0f, DARKGRAY);
+        DrawCircleV(origin, 5.0f, DARKGRAY);
+        DrawLineEx(origin, origin + forward * transform.scale, 5.0f, DARKGRAY);
         DrawLineStrip(points.data(), points.size(), color);
+        DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
+        DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
+        DrawText("D / A to move right/left", 10, 50, 20, BLUE);
+        DrawText("E / Q to rotate right/left", 10, 70, 20, PURPLE);
         EndDrawing();
     }
 
