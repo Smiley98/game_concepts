@@ -41,14 +41,40 @@ int main(void)
     transform.translation = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
     transform.scale = 100.0f;
 
-    float angularSpeed = 250.0f * DEG2RAD;
+    float translationSpeed = 350.0f;
+    float rotationSpeed = 250.0f * DEG2RAD;
+    float scaleSpeed = 50.0f;
     while (!WindowShouldClose())
     {
-        float rotationDelta = angularSpeed * GetFrameTime();
+        float dt = GetFrameTime();
+        float translationDelta = translationSpeed * dt;
+        float rotationDelta = rotationSpeed * dt;
+        float scaleDelta = scaleSpeed * dt;
+
+        if (IsKeyDown(KEY_LEFT_SHIFT))
+            transform.scale -= scaleDelta;
+        if (IsKeyDown(KEY_SPACE))
+            transform.scale += scaleDelta;
+
         if (IsKeyDown(KEY_Q))
             transform.rotation -= rotationDelta;
         if (IsKeyDown(KEY_E))
             transform.rotation += rotationDelta;
+
+        // By default, directions are relative to the horizontal,
+        // so subtract 90 degrees to rotate relative to the vertical
+        Vector2 forward = Direction(transform.rotation - 90.0f * DEG2RAD);
+        if (IsKeyDown(KEY_W))
+            transform.translation = transform.translation + forward * translationDelta;
+        if (IsKeyDown(KEY_S))
+            transform.translation = transform.translation - forward * translationDelta;
+
+        // Make a perpendicular vector by swapping y with x, then negating y
+        Vector2 right = { -forward.y, forward.x };
+        if (IsKeyDown(KEY_A))
+            transform.translation = transform.translation - right * translationDelta;
+        if (IsKeyDown(KEY_D))
+            transform.translation = transform.translation + right * translationDelta;
 
         Points points = hexagon;
         Apply(transform, points);
