@@ -13,15 +13,22 @@ struct Transform2
     float scale = 1.0f;
 };
 
+// Perform transformation directly since we're only transforming a single point
 void Apply(const Transform2& transform, Vector2& point)
 {
     point = Rotate((point * transform.scale), transform.rotation) + transform.translation;
 }
 
+// More efficient to store the transformation as a matrix when transforming multiple points
 void Apply(const Transform2& transform, Points& points)
 {
+    Matrix mat =
+        Scale(transform.scale, transform.scale, 1.0f)
+        * RotateZ(transform.rotation)
+        * Translate(transform.translation.x, transform.translation.y, 0.0f);
+
     for (Vector2& point : points)
-        point = Rotate((point * transform.scale), transform.rotation) + transform.translation;
+        point = Multiply(point, mat);
 }
 
 int main(void)
