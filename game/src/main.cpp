@@ -31,6 +31,41 @@ void Apply(const Transform2& transform, Points& points)
         point = Multiply(point, mat);
 }
 
+// Return perpendicular vector to v
+Vector2 Normal(Vector2 v)
+{
+    return { -v.y, v.x };
+}
+
+// Returns the normalized normals of the polygon
+Points Axes(Points polygon)
+{
+    Points axes(polygon.size());
+    for (size_t i = 0; i < polygon.size(); i++)
+    {
+        Vector2 p0 = polygon[i];
+        Vector2 p1 = polygon[(i + 1) % polygon.size()];
+        axes[i] = Normalize(Normal(p0 - p1));
+    }
+    return axes;
+}
+
+// Renders axes by applying the polygon's transform to the axes then translating them to the polygon's midpoints
+void DrawAxes(const Transform2& transform, const Points& polygon, const Color& color)
+{
+    Points points = polygon;
+    Apply(transform, points);
+    Points axes = Axes(points);
+    for (size_t i = 0; i < points.size(); i++)
+    {
+        Vector2 p0 = points[i];
+        Vector2 p1 = points[(i + 1) % points.size()];
+        Vector2 midpoint = (p0 + p1) * 0.5f;
+        Vector2 endpoint = axes[i] * transform.scale;
+        DrawLineV(midpoint, midpoint + endpoint, color);
+    }
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -101,6 +136,7 @@ int main(void)
         DrawCircleV(origin, 5.0f, DARKGRAY);
         DrawLineEx(origin, origin + forward * transform.scale, 5.0f, DARKGRAY);
         DrawLineStrip(points.data(), points.size(), color);
+        DrawAxes(transform, polygon, ORANGE);
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
         DrawText("D / A to move right/left", 10, 50, 20, BLUE);
