@@ -91,13 +91,23 @@ void DrawAxes(const Points& points, const Color& color)
     }
 }
 
-bool CheckCollisionPolygons(const Points& points1, const Points& points2, Vector2* mtv = nullptr)
+bool CheckCollisionPolygons(const Points& points1, const Points& points2,
+    const Transform2& transform1, const Transform2& transform2, Vector2* mtv = nullptr)
 {
+    Points normals1 = Normals(points1);
+    Points normals2 = Normals(points2);
+    Matrix translation1 = Translate(transform1.translation.x, transform1.translation.y, 0.0f);
+    Matrix translation2 = Translate(transform2.translation.x, transform2.translation.y, 0.0f);
+    for (Vector2& normal : normals1)
+        normal = Multiply(normal, translation1);
+    for (Vector2& normal : normals2)
+        normal = Multiply(normal, translation2);
+
     // Against axes 1
     {
         float min1 = FLT_MAX, min2 = FLT_MAX;
         float max1 = FLT_MIN, max2 = FLT_MIN;
-        for (const Vector2& axis : Normals(points1))
+        for (const Vector2& axis : normals1)
         {
             Project(points1, axis, min1, max1);
             Project(points2, axis, min2, max2);
@@ -110,7 +120,7 @@ bool CheckCollisionPolygons(const Points& points1, const Points& points2, Vector
     {
         float min1 = FLT_MAX, min2 = FLT_MAX;
         float max1 = FLT_MIN, max2 = FLT_MIN;
-        for (const Vector2& axis : Normals(points2))
+        for (const Vector2& axis : normals2)
         {
             Project(points1, axis, min1, max1);
             Project(points2, axis, min2, max2);
@@ -201,7 +211,7 @@ int main(void)
 
         Vector2 mouse = GetMousePosition();
         //bool collision = CheckCollisionPointPoly(mouse, points.data(), points.size());
-        bool collision = CheckCollisionPolygons(points, points2);
+        bool collision = CheckCollisionPolygons(points, points2, transform, transform2);
         Color color = collision ? RED : GREEN;
 
         BeginDrawing();
