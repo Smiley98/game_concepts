@@ -32,37 +32,34 @@ void Apply(const Transform2& transform, Points& points)
 }
 
 // Return perpendicular vector to v
-Vector2 Normal(Vector2 v)
+Vector2 Perpendicular(Vector2 v)
 {
     return { -v.y, v.x };
 }
 
-// Returns the normalized normals of the polygon
-Points Axes(Points polygon)
+// Returns an array of perpendicular vectors to the polygon's edges
+Points Normals(Points points)
 {
-    Points axes(polygon.size());
-    for (size_t i = 0; i < polygon.size(); i++)
+    Points normals(points.size());
+    for (size_t i = 0; i < points.size(); i++)
     {
-        Vector2 p0 = polygon[i];
-        Vector2 p1 = polygon[(i + 1) % polygon.size()];
-        axes[i] = Normalize(Normal(p0 - p1));
+        Vector2 p0 = points[i];
+        Vector2 p1 = points[(i + 1) % points.size()];
+        normals[i] = Perpendicular(p0 - p1);
     }
-    return axes;
+    return normals;
 }
 
-// Renders axes by applying the polygon's transform to the axes then translating them to the polygon's midpoints
-void DrawAxes(const Transform2& transform, const Points& polygon, const Color& color)
+// Draws lines from midpoints to midpoints + normals of a polygon
+void DrawAxes(const Points& points, const Color& color)
 {
-    Points points = polygon;
-    Apply(transform, points);
-    Points axes = Axes(points);
     for (size_t i = 0; i < points.size(); i++)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
         Vector2 midpoint = (p0 + p1) * 0.5f;
-        Vector2 endpoint = axes[i] * transform.scale;
-        DrawLineV(midpoint, midpoint + endpoint, color);
+        Vector2 normal = Perpendicular(p0 - p1);
+        DrawLineV(midpoint, midpoint + normal, color);
     }
 }
 
@@ -136,7 +133,7 @@ int main(void)
         DrawCircleV(origin, 5.0f, DARKGRAY);
         DrawLineEx(origin, origin + forward * transform.scale, 5.0f, DARKGRAY);
         DrawLineStrip(points.data(), points.size(), color);
-        DrawAxes(transform, polygon, ORANGE);
+        DrawAxes(points, ORANGE);
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
         DrawText("D / A to move right/left", 10, 50, 20, BLUE);
