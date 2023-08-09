@@ -31,10 +31,16 @@ void Apply(const Transform2& transform, Points& points)
         point = Multiply(point, mat);
 }
 
-// Return perpendicular vector to v
-Vector2 Perpendicular(Vector2 v)
+// Right perpendicular, ie if v = [0, 1] then PerpendicularL(v) = [1, 0]
+Vector2 PerpendicularR(Vector2 v)
 {
     return { -v.y, v.x };
+}
+
+// Right perpendicular, ie if v = [0, 1] then Perpendicular(v) = [-1, 0]
+Vector2 PerpendicularL(Vector2 v)
+{
+    return { v.y, -v.x };
 }
 
 // Returns an array of perpendicular vectors to the polygon's edges
@@ -45,7 +51,8 @@ Points Normals(const Points& points)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
-        normals[i] = Perpendicular(p0 - p1);
+        //normals[i] = Perpendicular(p0 - p1);
+        normals[i] = PerpendicularL(p1 - p0);
     }
     return normals;
 }
@@ -65,6 +72,13 @@ bool Overlaps(float min1, float max1, float min2, float max2)
     return !((max1 < min2) || (max2 < min1));
 }
 
+float Overlap(float min1, float max1, float min2, float max2)
+{
+    if (Overlaps(min1, max1, min2, max2))
+        return fminf(max1, max2) - fmaxf(min1, min2);
+    return 0.0f;
+}
+
 // Draws lines from midpoints to midpoints + normals of a polygon
 void DrawAxes(const Points& points, const Color& color)
 {
@@ -73,21 +87,18 @@ void DrawAxes(const Points& points, const Color& color)
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
         Vector2 midpoint = (p0 + p1) * 0.5f;
-        Vector2 normal = Perpendicular(p0 - p1);
+        Vector2 normal = PerpendicularL(p1 - p0);
         DrawLineV(midpoint, midpoint + normal, color);
     }
 }
 
 bool CheckCollisionPolygons(const Points& points1, const Points& points2, Vector2* mtv = nullptr)
 {
-    Points normals1 = Normals(points1);
-    Points normals2 = Normals(points2);
-
     // Against axes 1
     {
         float min1 = FLT_MAX, min2 = FLT_MAX;
         float max1 = FLT_MIN, max2 = FLT_MIN;
-        for (const Vector2& axis : normals1)
+        for (const Vector2& axis : Normals(points1))
         {
             Project(points1, axis, min1, max1);
             Project(points2, axis, min2, max2);
@@ -100,7 +111,7 @@ bool CheckCollisionPolygons(const Points& points1, const Points& points2, Vector
     {
         float min1 = FLT_MAX, min2 = FLT_MAX;
         float max1 = FLT_MIN, max2 = FLT_MIN;
-        for (const Vector2& axis : normals2)
+        for (const Vector2& axis : Normals(points2))
         {
             Project(points1, axis, min1, max1);
             Project(points2, axis, min2, max2);
@@ -166,7 +177,7 @@ int main(void)
             transform.translation = transform.translation - forward * translationDelta;
 
         // Make a perpendicular vector by swapping y with x, then negating y
-        Vector2 right = { -forward.y, forward.x };
+        Vector2 right = PerpendicularR(forward);
         if (IsKeyDown(KEY_A))
             transform.translation = transform.translation - right * translationDelta;
         if (IsKeyDown(KEY_D))
@@ -195,10 +206,13 @@ int main(void)
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawCircleV(mouse, 5.0f, DARKGRAY);
+
         DrawLineStrip(points.data(), points.size(), color);
         DrawLineStrip(points2.data(), points2.size(), color);
+
         DrawAxes(points, ORANGE);
         DrawAxes(points2, ORANGE);
+
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
         DrawText("D / A to move right/left", 10, 50, 20, BLUE);
