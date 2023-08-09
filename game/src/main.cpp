@@ -51,7 +51,6 @@ Points Normals(const Points& points)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
-        //normals[i] = Perpendicular(p0 - p1);
         normals[i] = PerpendicularL(p1 - p0);
     }
     return normals;
@@ -135,15 +134,17 @@ int main(void)
         { 1.0f, 1.0f },
         { -1.0f, 1.0f },
         { -1.0f, -1.0f },
-        { 1.0f, -1.0f },
+        //{ 1.0f, -1.0f },
     };
 
     Transform2 transform;
     transform.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
+    transform.rotation = -45.0f * DEG2RAD;
     transform.scale = 100.0f;
 
     Transform2 transform2;
     transform2.translation = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
+    transform2.rotation = -45.0f * DEG2RAD;
     transform2.scale = 100.0f;
 
     float translationSpeed = 350.0f;
