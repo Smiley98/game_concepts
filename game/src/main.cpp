@@ -38,7 +38,7 @@ Vector2 Perpendicular(Vector2 v)
 }
 
 // Returns an array of perpendicular vectors to the polygon's edges
-Points Normals(Points points)
+Points Normals(const Points& points)
 {
     Points normals(points.size());
     for (size_t i = 0; i < points.size(); i++)
@@ -48,6 +48,21 @@ Points Normals(Points points)
         normals[i] = Perpendicular(p0 - p1);
     }
     return normals;
+}
+
+void Project(const Points& points, const Vector2& axis, float& min, float& max)
+{
+    for (size_t i = 0; i < points.size(); i++)
+    {
+        float t = Dot(axis, points[i]);
+        if (t < min) min = t;
+        if (t > max) max = t;
+    }
+}
+
+bool Overlaps(float min1, float max1, float min2, float max2)
+{
+    return !((max1 < min2) || (max2 < min1));
 }
 
 // Draws lines from midpoints to midpoints + normals of a polygon
@@ -61,6 +76,40 @@ void DrawAxes(const Points& points, const Color& color)
         Vector2 normal = Perpendicular(p0 - p1);
         DrawLineV(midpoint, midpoint + normal, color);
     }
+}
+
+bool CheckCollisionPolygons(const Points& points1, const Points& points2, Vector2* mtv = nullptr)
+{
+    Points normals1 = Normals(points1);
+    Points normals2 = Normals(points2);
+
+    // Against axes 1
+    {
+        float min1 = FLT_MAX, min2 = FLT_MAX;
+        float max1 = FLT_MIN, max2 = FLT_MIN;
+        for (const Vector2& axis : normals1)
+        {
+            Project(points1, axis, min1, max1);
+            Project(points2, axis, min2, max2);
+            if (!Overlaps(min1, max1, min2, max2))
+                return false;
+        }
+    }
+
+    // Against axes 2
+    {
+        float min1 = FLT_MAX, min2 = FLT_MAX;
+        float max1 = FLT_MIN, max2 = FLT_MIN;
+        for (const Vector2& axis : normals2)
+        {
+            Project(points1, axis, min1, max1);
+            Project(points2, axis, min2, max2);
+            if (!Overlaps(min1, max1, min2, max2))
+                return false;
+        }
+    }
+
+    return true;
 }
 
 int main(void)
@@ -79,8 +128,12 @@ int main(void)
     };
 
     Transform2 transform;
-    transform.translation = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    transform.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
     transform.scale = 100.0f;
+
+    Transform2 transform2;
+    transform2.translation = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
+    transform2.scale = 100.0f;
 
     float translationSpeed = 350.0f;
     float rotationSpeed = 250.0f * DEG2RAD;
@@ -91,6 +144,7 @@ int main(void)
         float translationDelta = translationSpeed * dt;
         float rotationDelta = rotationSpeed * dt;
         float scaleDelta = scaleSpeed * dt;
+        //transform2.rotation += rotationDelta;
 
         // Decrease/increase scale
         if (IsKeyDown(KEY_LEFT_SHIFT))
@@ -118,22 +172,33 @@ int main(void)
         if (IsKeyDown(KEY_D))
             transform.translation = transform.translation + right * translationDelta;
 
+        if (IsKeyDown(KEY_UP))
+            transform2.translation.y -= translationDelta;
+        if (IsKeyDown(KEY_DOWN))
+            transform2.translation.y += translationDelta;
+        if (IsKeyDown(KEY_LEFT))
+            transform2.translation.x -= translationDelta;
+        if (IsKeyDown(KEY_RIGHT))
+            transform2.translation.x += translationDelta;
+
         Points points = polygon;
         Apply(transform, points);
-        Vector2 origin{};
-        Apply(transform, origin);
+
+        Points points2 = polygon;
+        Apply(transform2, points2);
 
         Vector2 mouse = GetMousePosition();
-        bool collision = CheckCollisionPointPoly(mouse, points.data(), points.size());
+        //bool collision = CheckCollisionPointPoly(mouse, points.data(), points.size());
+        bool collision = CheckCollisionPolygons(points, points2);
         Color color = collision ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawCircleV(mouse, 5.0f, DARKGRAY);
-        DrawCircleV(origin, 5.0f, DARKGRAY);
-        DrawLineEx(origin, origin + forward * transform.scale, 5.0f, DARKGRAY);
         DrawLineStrip(points.data(), points.size(), color);
+        DrawLineStrip(points2.data(), points2.size(), color);
         DrawAxes(points, ORANGE);
+        DrawAxes(points2, ORANGE);
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
         DrawText("D / A to move right/left", 10, 50, 20, BLUE);
