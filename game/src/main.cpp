@@ -92,19 +92,19 @@ public:
     {
         if (dirty)
         {
-            mWorldMatrix =
-                Scale(transform.scale, transform.scale, 1.0f)
-                * RotateZ(transform.rotation)
-                * Translate(transform.translation.x, transform.translation.y, 0.0f);
+            Matrix scale = Scale(transform.scale, transform.scale, 1.0f);
+            Matrix rotate = RotateZ(transform.rotation);
+            Matrix translate = Translate(transform.translation.x, transform.translation.y, 0.0f);
             
             worldVertices = mVertices;
+            Matrix worldMatrix = scale * rotate * translate;
             for (Vector2& vertex : worldVertices)
-                vertex = Multiply(vertex, mWorldMatrix);
+                vertex = Multiply(vertex, worldMatrix);
 
             worldNormals = mNormals;
-            Matrix normalMatrix = Transpose(Invert(mWorldMatrix));
+            Matrix normalMatrix = Transpose(Invert(scale * rotate)) * translate;
             for (Vector2& normal : worldNormals)
-                normal = Multiply(normal, mWorldMatrix);
+                normal = Multiply(normal, normalMatrix);
 
             dirty = false;
         }
@@ -132,8 +132,8 @@ public:
             float d = 400.0f;
             //Vector2 n = PerpendicularL(Normalize(p1 - p0)) * d + transform.translation;
             Vector2 n = Normalize(PerpendicularL(p1 - p0)) * d + transform.translation;
-            DrawLineEx(midpoint, n, thick, color);
-            DrawCircleV(n, 5.0f, BLUE);
+            DrawLineEx(midpoint, worldNormals[i], thick, color);
+            DrawCircleV(worldNormals[i], 5.0f, BLUE);
         }
     }
 
@@ -146,8 +146,6 @@ public:
 private:
     Points mVertices;
     Points mNormals;
-
-    Matrix mWorldMatrix = MatrixIdentity();
 };
 
 bool CheckCollisionPolygons(const Polygon& polygon1, const Polygon& polygon2, Vector2* mtv = nullptr)
