@@ -191,10 +191,27 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
+    //Polygon polygon1
+    //({
+    //    { 1.0f, -1.0f },
+    //    { 2.0f, 0.0f },
+    //    { 1.0f, 1.0f },
+    //    { -1.0f, 1.0f },
+    //    { -1.0f, -1.0f }
+    //});
+    //
+    //Polygon polygon2
+    //({
+    //    { 1.0f, -1.0f },
+    //    { 2.0f, 0.0f },
+    //    { 1.0f, 1.0f },
+    //    { -1.0f, 1.0f },
+    //    { -1.0f, -1.0f }
+    //});
+
     Polygon polygon1
     ({
         { 1.0f, -1.0f },
-        { 2.0f, 0.0f },
         { 1.0f, 1.0f },
         { -1.0f, 1.0f },
         { -1.0f, -1.0f }
@@ -203,7 +220,6 @@ int main(void)
     Polygon polygon2
     ({
         { 1.0f, -1.0f },
-        { 2.0f, 0.0f },
         { 1.0f, 1.0f },
         { -1.0f, 1.0f },
         { -1.0f, -1.0f }
