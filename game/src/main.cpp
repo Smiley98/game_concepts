@@ -106,15 +106,6 @@ public:
             worldNormals = mNormals;
             for (Vector2& normal : worldNormals)
                 normal = Multiply(normal, worldMatrix);
-            
-            // Calculating world-normals manually,equivalent to transforming model-normals by world-matrix
-            // (p1 - p0 world is scale * rotation, then just add translation)
-            //for (size_t i = 0; i < worldVertices.size(); i++)
-            //{
-            //    Vector2 p0 = worldVertices[i];
-            //    Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-            //    worldNormals[i] = PerpendicularL(p1 - p0) + transform.translation;
-            //}
 
             // The normal matrix is not applicable here for 2 reasons:
             // 1. We only allow uniform scaling (uniform scale does NOT change direction of normals)
@@ -135,12 +126,27 @@ public:
         }
     }
 
-    void RenderNormals(const Color& color, float thick = 1.0f)
+    void RenderNormals(float thick = 5.0f)
     {
+        // Render normals calculated from world-matrix at p0
+        // Render normals calculated from world-vertices at p1
         for (size_t i = 0; i < worldVertices.size(); i++)
         {
-            DrawLineEx(transform.translation, worldNormals[i], thick, color);
-            DrawCircleV(worldNormals[i], 5.0f, BLUE);
+            Vector2 p0 = worldVertices[i];
+            Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
+            Vector2 n0 = worldNormals[i] - transform.translation;
+            Vector2 n1 = PerpendicularL(p1 - p0);
+            DrawLineEx(p0, p0 + n0, thick, DARKPURPLE);
+            DrawLineEx(p1, p1 + n1, thick, BLUE);
+            DrawCircleV(p0 + n0, thick, PURPLE);
+            DrawCircleV(p1 + n1, thick, SKYBLUE);
+        }
+
+        // Render actual world position of normals
+        for (const Vector2& normal : worldNormals)
+        {
+            DrawLineEx(transform.translation, normal, thick, ORANGE);
+            DrawCircleV(normal, thick, GOLD);
         }
     }
 
@@ -191,24 +197,26 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    //Polygon polygon1
-    //({
-    //    { 1.0f, -1.0f },
-    //    { 2.0f, 0.0f },
-    //    { 1.0f, 1.0f },
-    //    { -1.0f, 1.0f },
-    //    { -1.0f, -1.0f }
-    //});
-    //
-    //Polygon polygon2
-    //({
-    //    { 1.0f, -1.0f },
-    //    { 2.0f, 0.0f },
-    //    { 1.0f, 1.0f },
-    //    { -1.0f, 1.0f },
-    //    { -1.0f, -1.0f }
-    //});
+    ///*
+    Polygon polygon1
+    ({
+        { 1.0f, -1.0f },
+        { 2.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { -1.0f, 1.0f },
+        { -1.0f, -1.0f }
+    });
+    
+    Polygon polygon2
+    ({
+        { 1.0f, -1.0f },
+        { 2.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { -1.0f, 1.0f },
+        { -1.0f, -1.0f }
+    });//*/
 
+    /*
     Polygon polygon1
     ({
         { 1.0f, -1.0f },
@@ -223,7 +231,7 @@ int main(void)
         { 1.0f, 1.0f },
         { -1.0f, 1.0f },
         { -1.0f, -1.0f }
-    });
+    });//*/
 
     Transform2& t1 = polygon1.transform;
     t1.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
@@ -294,8 +302,8 @@ int main(void)
 
         polygon1.Render(color, 5.0f);
         polygon2.Render(color, 5.0f);
-        polygon1.RenderNormals(ORANGE, 5.0f);
-        polygon2.RenderNormals(ORANGE, 5.0f);
+        polygon1.RenderNormals();
+        polygon2.RenderNormals();
 
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
