@@ -95,23 +95,28 @@ public:
             Matrix scale = Scale(transform.scale, transform.scale, 1.0f);
             Matrix rotate = RotateZ(transform.rotation);
             Matrix translate = Translate(transform.translation.x, transform.translation.y, 0.0f);
-            
-            worldVertices = mVertices;
             Matrix worldMatrix = scale * rotate * translate;
+
+            worldVertices = mVertices;
             for (Vector2& vertex : worldVertices)
                 vertex = Multiply(vertex, worldMatrix);
 
             worldNormals = mNormals;
-            for (size_t i = 0; i < worldVertices.size(); i++)
-            {
-                Vector2 p0 = worldVertices[i];
-                Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-                worldNormals[i] = transform.translation + PerpendicularL(p1 - p0);
-            }
+            for (Vector2& normal : worldNormals)
+                normal = Multiply(normal, worldMatrix);
 
+            // Attempt at using the normal matrix to preserve non-unit magnitude of normals in model-space
+            // (analagous to preserving a non-uniform scaling within a world-transformation)
             //Matrix normalMatrix = Transpose(Invert(scale * rotate)) * translate;
-            //for (Vector2& normal : worldNormals)
-            //    normal = Multiply(normal, normalMatrix);
+             
+            // Calculating world-normals manually, same result as transforming model-normals by world-matrix
+            // (p1 - p0 world is scale * rotation, then just add translation)
+            //for (size_t i = 0; i < worldVertices.size(); i++)
+            //{
+            //    Vector2 p0 = worldVertices[i];
+            //    Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
+            //    worldNormals[i] = transform.translation + PerpendicularL(p1 - p0);
+            //}
 
             dirty = false;
         }
