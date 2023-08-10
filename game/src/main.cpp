@@ -51,7 +51,8 @@ Points Normals(const Points& points)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
-        normals[i] = Normalize(PerpendicularL(p1 - p0));
+        //normals[i] = PerpendicularL(Normalize(p1 - p0));
+        normals[i] = PerpendicularL(p1 - p0);
     }
     return normals;
 }
@@ -101,6 +102,7 @@ public:
                 vertex = Multiply(vertex, mWorldMatrix);
 
             worldNormals = mNormals;
+            Matrix normalMatrix = Transpose(Invert(mWorldMatrix));
             for (Vector2& normal : worldNormals)
                 normal = Multiply(normal, mWorldMatrix);
 
@@ -118,7 +120,6 @@ public:
         }
     }
 
-    // TODO -- use actual world-normal to verify correctness
     void RenderNormals(const Color& color, float thick = 1.0f)
     {
         for (size_t i = 0; i < worldVertices.size(); i++)
@@ -126,8 +127,13 @@ public:
             Vector2 p0 = worldVertices[i];
             Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
             Vector2 midpoint = (p0 + p1) * 0.5f;
-            Vector2 normal = PerpendicularL(p1 - p0);
-            DrawLineV(midpoint, midpoint + normal, color);
+
+            // Dig into this mis-match
+            float d = 400.0f;
+            //Vector2 n = PerpendicularL(Normalize(p1 - p0)) * d + transform.translation;
+            Vector2 n = Normalize(PerpendicularL(p1 - p0)) * d + transform.translation;
+            DrawLineEx(midpoint, n, thick, color);
+            DrawCircleV(n, 5.0f, BLUE);
         }
     }
 
@@ -200,12 +206,12 @@ int main(void)
 
     Transform2& t1 = polygon1.transform;
     t1.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
-    t1.rotation = -45.0f * DEG2RAD;
+    //t1.rotation = -45.0f * DEG2RAD;
     t1.scale = 100.0f;
     
     Transform2& t2 = polygon2.transform;
     t2.translation = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
-    t2.rotation = -45.0f * DEG2RAD;
+    //t2.rotation = -45.0f * DEG2RAD;
     t2.scale = 100.0f;
 
     float translationSpeed = 350.0f;
@@ -265,10 +271,10 @@ int main(void)
         ClearBackground(RAYWHITE);
         DrawCircleV(mouse, 5.0f, DARKGRAY);
 
-        polygon1.Render(color);
-        polygon2.Render(color);
-        polygon1.RenderNormals(ORANGE);
-        polygon2.RenderNormals(ORANGE);
+        polygon1.Render(color, 5.0f);
+        polygon2.Render(color, 5.0f);
+        polygon1.RenderNormals(ORANGE, 5.0f);
+        polygon2.RenderNormals(ORANGE, 5.0f);
 
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
