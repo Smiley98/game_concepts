@@ -106,7 +106,7 @@ public:
             {
                 Vector2 p0 = worldVertices[i];
                 Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-                worldNormals[i] = p0 + PerpendicularL(p1 - p0);
+                worldNormals[i] = transform.translation + PerpendicularL(p1 - p0);
             }
 
             //Matrix normalMatrix = Transpose(Invert(scale * rotate)) * translate;
@@ -131,11 +131,7 @@ public:
     {
         for (size_t i = 0; i < worldVertices.size(); i++)
         {
-            //Vector2 p0 = worldVertices[i];
-            //Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-            //Vector2 midpoint = (p0 + p1) * 0.5f;
-            //DrawLineEx(p0, p0 + PerpendicularL(p1 - p0), thick, color);
-            DrawLineEx(worldVertices[i], worldNormals[i], thick, color);
+            DrawLineEx(transform.translation, worldNormals[i], thick, color);
             DrawCircleV(worldNormals[i], 5.0f, BLUE);
         }
     }
