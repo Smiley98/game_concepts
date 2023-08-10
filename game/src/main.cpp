@@ -51,10 +51,7 @@ Points Normals(const Points& points)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
-        normals[i] = PerpendicularL(p1 - p0);
-        //normals[i] = PerpendicularL(Normalize(p1 - p0));
-        // Not even sure why I need world-space normals,
-        // but normalizing model-space normals affects the magnitude of world-space normals...
+        normals[i] = Normalize(PerpendicularL(p1 - p0));
     }
     return normals;
 }
@@ -63,7 +60,7 @@ void Project(const Points& points, const Vector2& axis, float& min, float& max)
 {
     for (size_t i = 0; i < points.size(); i++)
     {
-        float t = Dot(axis, points[i]);
+        float t = Dot(points[i], axis);
         if (t < min) min = t;
         if (t > max) max = t;
     }
@@ -98,6 +95,7 @@ public:
             Matrix rotate = RotateZ(transform.rotation);
             Matrix translate = Translate(transform.translation.x, transform.translation.y, 0.0f);
             Matrix worldMatrix = scale * rotate * translate;
+            Matrix normalMatrix = Transpose(Invert(scale * rotate));
 
             worldVertices = mVertices;
             for (Vector2& vertex : worldVertices)
@@ -105,12 +103,7 @@ public:
 
             worldNormals = mNormals;
             for (Vector2& normal : worldNormals)
-                normal = Multiply(normal, worldMatrix);
-
-            // The normal matrix is not applicable here for 2 reasons:
-            // 1. We only allow uniform scaling (uniform scale does NOT change direction of normals)
-            // 2. We want world-space normals; The normal-matrix is typically 3x3 (no translation).
-            // Furthermore, Transpose(Invert(scale * rotate)) removes the scale (rotate != world).
+                normal = Normalize(Multiply(normal, normalMatrix));
 
             dirty = false;
         }
@@ -128,27 +121,20 @@ public:
 
     void RenderNormals(float thick = 5.0f)
     {
-        // Render normals calculated from world-matrix at p0
-        // Render normals calculated from world-vertices at p1
+        // Render normals (automatically) calculated from world-matrix at t0
+        // Render normals (manually) calculated from world-vertices at t1
         for (size_t i = 0; i < worldVertices.size(); i++)
         {
             Vector2 p0 = worldVertices[i];
             Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-            Vector2 n0 = worldNormals[i] - transform.translation;
-            Vector2 n1 = PerpendicularL(p1 - p0);
+            Vector2 n0 = worldNormals[i] * transform.scale;
+            Vector2 n1 = Normalize(PerpendicularL(p1 - p0)) * transform.scale;
             Vector2 t0 = Lerp(p0, p1, 0.45f);
             Vector2 t1 = Lerp(p0, p1, 0.55f);
             DrawLineEx(t0, t0 + n0, thick, DARKPURPLE);
             DrawLineEx(t1, t1 + n1, thick, BLUE);
             DrawCircleV(t0 + n0, thick, PURPLE);
             DrawCircleV(t1 + n1, thick, SKYBLUE);
-        }
-
-        // Render actual world position of normals
-        for (const Vector2& normal : worldNormals)
-        {
-            DrawLineEx(transform.translation, normal, thick, ORANGE);
-            DrawCircleV(normal, thick, GOLD);
         }
     }
 
