@@ -136,10 +136,12 @@ public:
             Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
             Vector2 n0 = worldNormals[i] - transform.translation;
             Vector2 n1 = PerpendicularL(p1 - p0);
-            DrawLineEx(p0, p0 + n0, thick, DARKPURPLE);
-            DrawLineEx(p1, p1 + n1, thick, BLUE);
-            DrawCircleV(p0 + n0, thick, PURPLE);
-            DrawCircleV(p1 + n1, thick, SKYBLUE);
+            Vector2 t0 = Lerp(p0, p1, 0.45f);
+            Vector2 t1 = Lerp(p0, p1, 0.55f);
+            DrawLineEx(t0, t0 + n0, thick, DARKPURPLE);
+            DrawLineEx(t1, t1 + n1, thick, BLUE);
+            DrawCircleV(t0 + n0, thick, PURPLE);
+            DrawCircleV(t1 + n1, thick, SKYBLUE);
         }
 
         // Render actual world position of normals
