@@ -51,8 +51,10 @@ Points Normals(const Points& points)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
-        //normals[i] = PerpendicularL(Normalize(p1 - p0));
         normals[i] = PerpendicularL(p1 - p0);
+        //normals[i] = PerpendicularL(Normalize(p1 - p0));
+        // Not even sure why I need world-space normals,
+        // but normalizing model-space normals affects the magnitude of world-space normals...
     }
     return normals;
 }
@@ -104,19 +106,20 @@ public:
             worldNormals = mNormals;
             for (Vector2& normal : worldNormals)
                 normal = Multiply(normal, worldMatrix);
-
-            // Attempt at using the normal matrix to preserve non-unit magnitude of normals in model-space
-            // (analagous to preserving a non-uniform scaling within a world-transformation)
-            //Matrix normalMatrix = Transpose(Invert(scale * rotate)) * translate;
-             
-            // Calculating world-normals manually, same result as transforming model-normals by world-matrix
+            
+            // Calculating world-normals manually,equivalent to transforming model-normals by world-matrix
             // (p1 - p0 world is scale * rotation, then just add translation)
             //for (size_t i = 0; i < worldVertices.size(); i++)
             //{
             //    Vector2 p0 = worldVertices[i];
             //    Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-            //    worldNormals[i] = transform.translation + PerpendicularL(p1 - p0);
+            //    worldNormals[i] = PerpendicularL(p1 - p0) + transform.translation;
             //}
+
+            // The normal matrix is not applicable here for 2 reasons:
+            // 1. We only allow uniform scaling (uniform scale does NOT change direction of normals)
+            // 2. We want world-space normals; The normal-matrix is typically 3x3 (no translation).
+            // Furthermore, Transpose(Invert(scale * rotate)) removes the scale (rotate != world).
 
             dirty = false;
         }
