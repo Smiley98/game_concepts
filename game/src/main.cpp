@@ -102,9 +102,16 @@ public:
                 vertex = Multiply(vertex, worldMatrix);
 
             worldNormals = mNormals;
-            Matrix normalMatrix = Transpose(Invert(scale * rotate)) * translate;
-            for (Vector2& normal : worldNormals)
-                normal = Multiply(normal, normalMatrix);
+            for (size_t i = 0; i < worldVertices.size(); i++)
+            {
+                Vector2 p0 = worldVertices[i];
+                Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
+                worldNormals[i] = p0 + PerpendicularL(p1 - p0);
+            }
+
+            //Matrix normalMatrix = Transpose(Invert(scale * rotate)) * translate;
+            //for (Vector2& normal : worldNormals)
+            //    normal = Multiply(normal, normalMatrix);
 
             dirty = false;
         }
@@ -124,15 +131,11 @@ public:
     {
         for (size_t i = 0; i < worldVertices.size(); i++)
         {
-            Vector2 p0 = worldVertices[i];
-            Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
-            Vector2 midpoint = (p0 + p1) * 0.5f;
-
-            // Dig into this mis-match
-            float d = 400.0f;
-            //Vector2 n = PerpendicularL(Normalize(p1 - p0)) * d + transform.translation;
-            Vector2 n = Normalize(PerpendicularL(p1 - p0)) * d + transform.translation;
-            DrawLineEx(midpoint, worldNormals[i], thick, color);
+            //Vector2 p0 = worldVertices[i];
+            //Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
+            //Vector2 midpoint = (p0 + p1) * 0.5f;
+            //DrawLineEx(p0, p0 + PerpendicularL(p1 - p0), thick, color);
+            DrawLineEx(worldVertices[i], worldNormals[i], thick, color);
             DrawCircleV(worldNormals[i], 5.0f, BLUE);
         }
     }
