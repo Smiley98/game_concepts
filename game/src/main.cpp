@@ -43,7 +43,7 @@ Vector2 PerpendicularL(Vector2 v)
     return { v.y, -v.x };
 }
 
-// Returns an array of perpendicular vectors to the polygon's edges
+// Returns an array of normalized perpendicular vectors to the polygon's edges
 Points Normals(const Points& points)
 {
     Points normals(points.size());
@@ -51,7 +51,7 @@ Points Normals(const Points& points)
     {
         Vector2 p0 = points[i];
         Vector2 p1 = points[(i + 1) % points.size()];
-        normals[i] = PerpendicularL(p1 - p0);
+        normals[i] = Normalize(PerpendicularL(p1 - p0));
     }
     return normals;
 }
@@ -78,39 +78,82 @@ float Overlap(float min1, float max1, float min2, float max2)
     return 0.0f;
 }
 
-// Draws lines from midpoints to midpoints + normals of a polygon
-void DrawAxes(const Points& points, const Color& color)
+class Polygon
 {
-    for (size_t i = 0; i < points.size(); i++)
+public:
+    Polygon(Points&& points)
     {
-        Vector2 p0 = points[i];
-        Vector2 p1 = points[(i + 1) % points.size()];
-        Vector2 midpoint = (p0 + p1) * 0.5f;
-        Vector2 normal = PerpendicularL(p1 - p0);
-        DrawLineV(midpoint, midpoint + normal, color);
+        mVertices = std::move(points);
+        mNormals = Normals(mVertices);
     }
-}
 
-bool CheckCollisionPolygons(const Points& points1, const Points& points2,
-    const Transform2& transform1, const Transform2& transform2, Vector2* mtv = nullptr)
+    void Update()
+    {
+        if (dirty)
+        {
+            mWorldMatrix =
+                Scale(transform.scale, transform.scale, 1.0f)
+                * RotateZ(transform.rotation)
+                * Translate(transform.translation.x, transform.translation.y, 0.0f);
+            
+            worldVertices = mVertices;
+            for (Vector2& vertex : worldVertices)
+                vertex = Multiply(vertex, mWorldMatrix);
+
+            worldNormals = mNormals;
+            for (Vector2& normal : worldNormals)
+                normal = Multiply(normal, mWorldMatrix);
+
+            dirty = false;
+        }
+    }
+
+    void Render(const Color& color, float thick = 1.0f)
+    {
+        for (size_t i = 0; i < worldVertices.size(); i++)
+        {
+            Vector2 p0 = worldVertices[i];
+            Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
+            DrawLineEx(p0, p1, thick, color);
+        }
+    }
+
+    // TODO -- use actual world-normal to verify correctness
+    void RenderNormals(const Color& color, float thick = 1.0f)
+    {
+        for (size_t i = 0; i < worldVertices.size(); i++)
+        {
+            Vector2 p0 = worldVertices[i];
+            Vector2 p1 = worldVertices[(i + 1) % worldVertices.size()];
+            Vector2 midpoint = (p0 + p1) * 0.5f;
+            Vector2 normal = PerpendicularL(p1 - p0);
+            DrawLineV(midpoint, midpoint + normal, color);
+        }
+    }
+
+    Transform2 transform;
+    bool dirty = true;
+
+    Points worldVertices;
+    Points worldNormals;
+
+private:
+    Points mVertices;
+    Points mNormals;
+
+    Matrix mWorldMatrix = MatrixIdentity();
+};
+
+bool CheckCollisionPolygons(const Polygon& polygon1, const Polygon& polygon2, Vector2* mtv = nullptr)
 {
-    Points normals1 = Normals(points1);
-    Points normals2 = Normals(points2);
-    Matrix translation1 = Translate(transform1.translation.x, transform1.translation.y, 0.0f);
-    Matrix translation2 = Translate(transform2.translation.x, transform2.translation.y, 0.0f);
-    for (Vector2& normal : normals1)
-        normal = Multiply(normal, translation1);
-    for (Vector2& normal : normals2)
-        normal = Multiply(normal, translation2);
-
     // Against axes 1
     {
         float min1 = FLT_MAX, min2 = FLT_MAX;
         float max1 = FLT_MIN, max2 = FLT_MIN;
-        for (const Vector2& axis : normals1)
+        for (const Vector2& axis : polygon1.worldNormals)
         {
-            Project(points1, axis, min1, max1);
-            Project(points2, axis, min2, max2);
+            Project(polygon1.worldVertices, axis, min1, max1);
+            Project(polygon2.worldVertices, axis, min2, max2);
             if (!Overlaps(min1, max1, min2, max2))
                 return false;
         }
@@ -120,10 +163,10 @@ bool CheckCollisionPolygons(const Points& points1, const Points& points2,
     {
         float min1 = FLT_MAX, min2 = FLT_MAX;
         float max1 = FLT_MIN, max2 = FLT_MIN;
-        for (const Vector2& axis : normals2)
+        for (const Vector2& axis : polygon2.worldNormals)
         {
-            Project(points1, axis, min1, max1);
-            Project(points2, axis, min2, max2);
+            Project(polygon1.worldVertices, axis, min1, max1);
+            Project(polygon2.worldVertices, axis, min2, max2);
             if (!Overlaps(min1, max1, min2, max2))
                 return false;
         }
@@ -137,25 +180,33 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    Points polygon
-    {
+    Polygon polygon1
+    ({
         { 1.0f, -1.0f },
         { 2.0f, 0.0f },
         { 1.0f, 1.0f },
         { -1.0f, 1.0f },
-        { -1.0f, -1.0f },
-        //{ 1.0f, -1.0f },
-    };
+        { -1.0f, -1.0f }
+    });
 
-    Transform2 transform;
-    transform.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
-    transform.rotation = -45.0f * DEG2RAD;
-    transform.scale = 100.0f;
+    Polygon polygon2
+    ({
+        { 1.0f, -1.0f },
+        { 2.0f, 0.0f },
+        { 1.0f, 1.0f },
+        { -1.0f, 1.0f },
+        { -1.0f, -1.0f }
+    });
 
-    Transform2 transform2;
-    transform2.translation = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
-    transform2.rotation = -45.0f * DEG2RAD;
-    transform2.scale = 100.0f;
+    Transform2& t1 = polygon1.transform;
+    t1.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
+    t1.rotation = -45.0f * DEG2RAD;
+    t1.scale = 100.0f;
+    
+    Transform2& t2 = polygon2.transform;
+    t2.translation = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
+    t2.rotation = -45.0f * DEG2RAD;
+    t2.scale = 100.0f;
 
     float translationSpeed = 350.0f;
     float rotationSpeed = 250.0f * DEG2RAD;
@@ -166,63 +217,58 @@ int main(void)
         float translationDelta = translationSpeed * dt;
         float rotationDelta = rotationSpeed * dt;
         float scaleDelta = scaleSpeed * dt;
-        //transform2.rotation += rotationDelta;
 
         // Decrease/increase scale
         if (IsKeyDown(KEY_LEFT_SHIFT))
-            transform.scale -= scaleDelta;
+            t1.scale -= scaleDelta;
         if (IsKeyDown(KEY_SPACE))
-            transform.scale += scaleDelta;
+            t1.scale += scaleDelta;
 
         // Rotate counter-clockwise/clockwise
         if (IsKeyDown(KEY_Q))
-            transform.rotation -= rotationDelta;
+            t1.rotation -= rotationDelta;
         if (IsKeyDown(KEY_E))
-            transform.rotation += rotationDelta;
+            t1.rotation += rotationDelta;
 
         // Convert rotation to direction so it can be applied to translation
-        Vector2 forward = Direction(transform.rotation);
+        Vector2 forward = Direction(t1.rotation);
         if (IsKeyDown(KEY_W))
-            transform.translation = transform.translation + forward * translationDelta;
+            t1.translation = t1.translation + forward * translationDelta;
         if (IsKeyDown(KEY_S))
-            transform.translation = transform.translation - forward * translationDelta;
+            t1.translation = t1.translation - forward * translationDelta;
 
         // Make a perpendicular vector by swapping y with x, then negating y
         Vector2 right = PerpendicularR(forward);
         if (IsKeyDown(KEY_A))
-            transform.translation = transform.translation - right * translationDelta;
+            t1.translation = t1.translation - right * translationDelta;
         if (IsKeyDown(KEY_D))
-            transform.translation = transform.translation + right * translationDelta;
+            t1.translation = t1.translation + right * translationDelta;
 
         if (IsKeyDown(KEY_UP))
-            transform2.translation.y -= translationDelta;
+            t2.translation.y -= translationDelta;
         if (IsKeyDown(KEY_DOWN))
-            transform2.translation.y += translationDelta;
+            t2.translation.y += translationDelta;
         if (IsKeyDown(KEY_LEFT))
-            transform2.translation.x -= translationDelta;
+            t2.translation.x -= translationDelta;
         if (IsKeyDown(KEY_RIGHT))
-            transform2.translation.x += translationDelta;
+            t2.translation.x += translationDelta;
 
-        Points points = polygon;
-        Apply(transform, points);
-
-        Points points2 = polygon;
-        Apply(transform2, points2);
+        polygon1.dirty = polygon2.dirty = true;
+        polygon1.Update();
+        polygon2.Update();
 
         Vector2 mouse = GetMousePosition();
-        //bool collision = CheckCollisionPointPoly(mouse, points.data(), points.size());
-        bool collision = CheckCollisionPolygons(points, points2, transform, transform2);
+        bool collision = CheckCollisionPolygons(polygon1, polygon2);
         Color color = collision ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawCircleV(mouse, 5.0f, DARKGRAY);
 
-        DrawLineStrip(points.data(), points.size(), color);
-        DrawLineStrip(points2.data(), points2.size(), color);
-
-        DrawAxes(points, ORANGE);
-        DrawAxes(points2, ORANGE);
+        polygon1.Render(color);
+        polygon2.Render(color);
+        polygon1.RenderNormals(ORANGE);
+        polygon2.RenderNormals(ORANGE);
 
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
