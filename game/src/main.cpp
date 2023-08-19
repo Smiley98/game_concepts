@@ -1,10 +1,9 @@
 #include "rlImGui.h"
 #include "Math.h"
 #include <vector>
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
-
-using Points = std::vector<Vector2>;
+#define SCREEN_WIDTH 1920
+#define SCREEN_HEIGHT 1080
+constexpr Vector2 CENTER { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
 
 struct Transform2
 {
@@ -13,23 +12,14 @@ struct Transform2
     float scale = 1.0f;
 };
 
-// Perform transformation directly since we're only transforming a single point
-void Apply(const Transform2& transform, Vector2& point)
+struct Range
 {
-    point = Rotate((point * transform.scale), transform.rotation) + transform.translation;
-}
+    float min =  FLT_MAX;   // min is initialized to highest possible value
+    float max = -FLT_MAX;   // max is initialized to lowest  possible value
+};
 
-// More efficient to store the transformation as a matrix when transforming multiple points
-void Apply(const Transform2& transform, Points& points)
-{
-    Matrix mat =
-        Scale(transform.scale, transform.scale, 1.0f)
-        * RotateZ(transform.rotation)
-        * Translate(transform.translation.x, transform.translation.y, 0.0f);
-
-    for (Vector2& point : points)
-        point = Multiply(point, mat);
-}
+using Ranges = std::vector<Range>;
+using Points = std::vector<Vector2>;
 
 // Right perpendicular, ie if v = [0, 1] then PerpendicularL(v) = [1, 0]
 Vector2 PerpendicularR(Vector2 v)
@@ -43,7 +33,7 @@ Vector2 PerpendicularL(Vector2 v)
     return { v.y, -v.x };
 }
 
-// Returns an array of normalized perpendicular vectors to the polygon's edges
+// Returns an array of normalized counter-clockwise perpendicular vectors to the polygon's edges
 Points Normals(const Points& points)
 {
     Points normals(points.size());
@@ -56,6 +46,7 @@ Points Normals(const Points& points)
     return normals;
 }
 
+// Determines the minimum and maximum scalar projection of all points onto a unit-length axis
 void Project(const Points& points, const Vector2& axis, float& min, float& max)
 {
     for (size_t i = 0; i < points.size(); i++)
@@ -66,11 +57,13 @@ void Project(const Points& points, const Vector2& axis, float& min, float& max)
     }
 }
 
+// Scalar overlap test
 bool Overlaps(float min1, float max1, float min2, float max2)
 {
     return !((max1 < min2) || (max2 < min1));
 }
 
+// Scalar overlap difference
 float Overlap(float min1, float max1, float min2, float max2)
 {
     if (Overlaps(min1, max1, min2, max2))
@@ -78,10 +71,12 @@ float Overlap(float min1, float max1, float min2, float max2)
     return 0.0f;
 }
 
+void DrawLineDotted(Vector2 start, Vector2 end, float thick, Color color, size_t subdivisions = 16);
+
 class Polygon
 {
 public:
-    Polygon(Points&& points)
+    Polygon(Points&& points) : axisCount(points.size())
     {
         mVertices = std::move(points);
         mNormals = Normals(mVertices);
@@ -89,23 +84,52 @@ public:
 
     void Update()
     {
-        if (dirty)
+        Matrix scale = Scale(transform.scale, transform.scale, 1.0f);
+        Matrix rotate = RotateZ(transform.rotation);
+        Matrix translate = Translate(transform.translation.x, transform.translation.y, 0.0f);
+        Matrix worldMatrix = scale * rotate * translate;
+        Matrix normalMatrix = Transpose(Invert(scale * rotate));
+
+        worldVertices = mVertices;
+        for (Vector2& vertex : worldVertices)
+            vertex = Multiply(vertex, worldMatrix);
+
+        worldNormals = mNormals;
+        for (Vector2& normal : worldNormals)
+            normal = Normalize(Multiply(normal, normalMatrix));
+    }
+
+    static void InitProjections(Polygon& polygon1, Polygon& polygon2)
+    {
+        polygon1.mProjectionsSelf.resize(polygon1.axisCount);
+        polygon2.mProjectionsSelf.resize(polygon2.axisCount);
+        polygon1.mProjectionsOther.resize(polygon2.axisCount);
+        polygon2.mProjectionsOther.resize(polygon1.axisCount);
+    }
+
+    static void UpdateProjections(Polygon& polygon1, Polygon& polygon2)
+    {
+        std::fill(polygon1.mProjectionsSelf.begin(), polygon1.mProjectionsSelf.end(), Range{});
+        std::fill(polygon2.mProjectionsSelf.begin(), polygon2.mProjectionsSelf.end(), Range{});
+        std::fill(polygon1.mProjectionsOther.begin(), polygon1.mProjectionsOther.end(), Range{});
+        std::fill(polygon2.mProjectionsOther.begin(), polygon2.mProjectionsOther.end(), Range{});
+
+        for (size_t i = 0; i < polygon1.axisCount; i++)
         {
-            Matrix scale = Scale(transform.scale, transform.scale, 1.0f);
-            Matrix rotate = RotateZ(transform.rotation);
-            Matrix translate = Translate(transform.translation.x, transform.translation.y, 0.0f);
-            Matrix worldMatrix = scale * rotate * translate;
-            Matrix normalMatrix = Transpose(Invert(scale * rotate));
-
-            worldVertices = mVertices;
-            for (Vector2& vertex : worldVertices)
-                vertex = Multiply(vertex, worldMatrix);
-
-            worldNormals = mNormals;
-            for (Vector2& normal : worldNormals)
-                normal = Normalize(Multiply(normal, normalMatrix));
-
-            dirty = false;
+            Range& self = polygon1.mProjectionsSelf[i];
+            Range& other = polygon2.mProjectionsOther[i];
+            const Vector2& axis = polygon1.worldNormals[i];
+            Project(polygon1.worldVertices, axis, self.min, self.max);
+            Project(polygon2.worldVertices, axis, other.min, other.max);
+        }
+    
+        for (size_t i = 0; i < polygon2.axisCount; i++)
+        {
+            Range& self = polygon2.mProjectionsSelf[i];
+            Range& other = polygon1.mProjectionsOther[i];
+            const Vector2& axis = polygon2.worldNormals[i];
+            Project(polygon2.worldVertices, axis, self.min, self.max);
+            Project(polygon1.worldVertices, axis, other.min, other.max);
         }
     }
 
@@ -138,8 +162,61 @@ public:
         }
     }
 
+    static void RenderProjections(const Polygon& polygon1, const Polygon& polygon2)
+    {
+        auto renderProjection = [](const Vector2& axis, float min, float max, float offset, Color color)
+        {
+            Vector2 start = axis * min;
+            Vector2 end = axis * max;
+            Vector2 tangent = CENTER + PerpendicularR(axis) * offset;
+            DrawLineEx(start + tangent, end + tangent, 4.0f, color);
+        };
+
+        const float offset1 = 115.0f;
+        const float offset2 = 125.0f;
+        const Color color1 = SKYBLUE;
+        const Color color2 = PINK;
+
+        for (size_t i = 0; i < polygon1.axisCount; i++)
+        {
+            const Vector2& axis = polygon1.worldNormals[i];
+            const Range& self = polygon1.mProjectionsSelf[i];
+            const Range& other = polygon2.mProjectionsOther[i];
+            renderProjection(axis, self.min, self.max, offset1, color1);
+            renderProjection(axis, other.min, other.max, offset2, color2);
+        }
+
+        for (size_t i = 0; i < polygon2.axisCount; i++)
+        {
+            const Vector2& axis = polygon2.worldNormals[i];
+            const Range& self = polygon2.mProjectionsSelf[i];
+            const Range& other = polygon1.mProjectionsOther[i];
+            renderProjection(axis, self.min, self.max, offset2, color2);
+            renderProjection(axis, other.min, other.max, offset1, color1);
+        }
+    }
+    
+    static void RenderAxes(const Polygon& polygon1, const Polygon& polygon2)
+    {
+        auto renderAxis = [](const Vector2& axis, Color color)
+        {
+            const float offset = 150.0f;
+            const float length = 400.0f;
+            Vector2 midpoint = CENTER + PerpendicularR(axis) * offset;
+            Vector2 start = midpoint + axis * length;
+            Vector2 end = midpoint - axis * length;
+            DrawLineDotted(start, end, 4.0f, color, 64);
+        };
+
+        for (const Vector2& axis : polygon1.worldNormals)
+            renderAxis(axis, DARKBLUE);
+
+        for (const Vector2& axis : polygon2.worldNormals)
+            renderAxis(axis, DARKPURPLE);
+    }
+
     Transform2 transform;
-    bool dirty = true;
+    const size_t axisCount;
 
     Points worldVertices;
     Points worldNormals;
@@ -147,16 +224,20 @@ public:
 private:
     Points mVertices;
     Points mNormals;
+
+    // For visualization only
+    Ranges mProjectionsSelf;
+    Ranges mProjectionsOther;
 };
 
 bool CheckCollisionPolygons(const Polygon& polygon1, const Polygon& polygon2, Vector2* mtv = nullptr)
 {
     // Against axes 1
     {
-        float min1 = FLT_MAX, min2 = FLT_MAX;
-        float max1 = FLT_MIN, max2 = FLT_MIN;
         for (const Vector2& axis : polygon1.worldNormals)
         {
+            float min1 = FLT_MAX, min2 = FLT_MAX;
+            float max1 = -FLT_MAX, max2 = -FLT_MAX;
             Project(polygon1.worldVertices, axis, min1, max1);
             Project(polygon2.worldVertices, axis, min2, max2);
             if (!Overlaps(min1, max1, min2, max2))
@@ -166,10 +247,10 @@ bool CheckCollisionPolygons(const Polygon& polygon1, const Polygon& polygon2, Ve
 
     // Against axes 2
     {
-        float min1 = FLT_MAX, min2 = FLT_MAX;
-        float max1 = FLT_MIN, max2 = FLT_MIN;
         for (const Vector2& axis : polygon2.worldNormals)
         {
+            float min1 = FLT_MAX, min2 = FLT_MAX;
+            float max1 = -FLT_MAX, max2 = -FLT_MAX;
             Project(polygon1.worldVertices, axis, min1, max1);
             Project(polygon2.worldVertices, axis, min2, max2);
             if (!Overlaps(min1, max1, min2, max2))
@@ -185,7 +266,8 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    ///*
+    // Pentagons
+    /*
     Polygon polygon1
     ({
         { 1.0f, -1.0f },
@@ -204,6 +286,7 @@ int main(void)
         { -1.0f, -1.0f }
     });//*/
 
+    // Rectangles
     /*
     Polygon polygon1
     ({
@@ -221,14 +304,30 @@ int main(void)
         { -1.0f, -1.0f }
     });//*/
 
+    // Triangles
+    ///*
+    Polygon polygon1
+    ({
+        { 0.0f, -0.66f },
+        { 0.5f, 0.33f },
+        { -0.5f, 0.33f }
+    });
+
+    Polygon polygon2
+    ({
+        { 0.0f, -0.66f },
+        { 0.5f, 0.33f },
+        { -0.5f, 0.33f }
+    });//*/
+
+    Polygon::InitProjections(polygon1, polygon2);
+
     Transform2& t1 = polygon1.transform;
     t1.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
-    //t1.rotation = -45.0f * DEG2RAD;
     t1.scale = 100.0f;
     
     Transform2& t2 = polygon2.transform;
     t2.translation = { SCREEN_WIDTH * 0.75f, SCREEN_HEIGHT * 0.5f };
-    //t2.rotation = -45.0f * DEG2RAD;
     t2.scale = 100.0f;
 
     float translationSpeed = 350.0f;
@@ -276,9 +375,9 @@ int main(void)
         if (IsKeyDown(KEY_RIGHT))
             t2.translation.x += translationDelta;
 
-        polygon1.dirty = polygon2.dirty = true;
         polygon1.Update();
         polygon2.Update();
+        Polygon::UpdateProjections(polygon1, polygon2);
 
         Vector2 mouse = GetMousePosition();
         bool collision = CheckCollisionPolygons(polygon1, polygon2);
@@ -290,8 +389,12 @@ int main(void)
 
         polygon1.Render(color, 5.0f);
         polygon2.Render(color, 5.0f);
-        polygon1.RenderNormals();
-        polygon2.RenderNormals();
+        //polygon1.RenderNormals();
+        //polygon2.RenderNormals();
+        Polygon::RenderAxes(polygon1, polygon2);
+        Polygon::RenderProjections(polygon1, polygon2);
+
+        DrawLineEx(t1.translation, t1.translation + forward * t1.scale, 5.0f, GRAY);
 
         DrawText("SPACE / LSHIFT to scale up/down", 10, 10, 20, RED);
         DrawText("W / S to move forwards/backwards", 10, 30, 20, ORANGE);
@@ -302,4 +405,21 @@ int main(void)
 
     CloseWindow();
     return 0;
+}
+
+void DrawLineDotted(Vector2 start, Vector2 end, float thick, Color color, size_t subdivisions)
+{
+    Vector2 delta = end - start;
+    float t = 1.0f / subdivisions;
+    for (size_t i = 0; i < subdivisions; i++)
+    {
+        if (i % 2 == 0)
+        {
+            float t0 = t * i;
+            float t1 = t * (i + 1);
+            Vector2 a = start + delta * t0;
+            Vector2 b = start + delta * t1;
+            DrawLineEx(start + delta * t0, start + delta * t1, thick, color);
+        }
+    }
 }
