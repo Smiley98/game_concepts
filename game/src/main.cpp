@@ -178,135 +178,6 @@ bool CheckCollisionPolygons(const Polygon& polygon1, const Polygon& polygon2, Ve
     return true;
 }
 
-/*
- * Visualization Begin *
- */
-void DrawLineDotted(Vector2 start, Vector2 end, float thick, Color color, size_t subdivisions)
-{
-    Vector2 delta = end - start;
-    float t = 1.0f / subdivisions;
-    for (size_t i = 0; i < subdivisions; i++)
-    {
-        if (i % 2 == 0)
-        {
-            float t0 = t * i;
-            float t1 = t * (i + 1);
-            Vector2 a = start + delta * t0;
-            Vector2 b = start + delta * t1;
-            DrawLineEx(start + delta * t0, start + delta * t1, thick, color);
-        }
-    }
-}
-
-struct Projection
-{
-    float min = FLT_MAX;
-    float max = -FLT_MAX;
-};
-
-struct Projections
-{
-    Polygon* polygon1 = nullptr;
-    Polygon* polygon2 = nullptr;
-    std::vector<Projection> proj11;  // 1 onto 1
-    std::vector<Projection> proj12;  // 1 onto 2
-    std::vector<Projection> proj21;  // 2 onto 1
-    std::vector<Projection> proj22;  // 2 onto 2
-};
-
-void Create(Projections& projections, const Polygon& polygon1, const Polygon& polygon2)
-{
-    projections.polygon1 = (Polygon*)&polygon1;
-    projections.polygon2 = (Polygon*)&polygon2;
-    projections.proj11.resize(polygon1.count);
-    projections.proj21.resize(polygon1.count);
-    projections.proj12.resize(polygon2.count);
-    projections.proj22.resize(polygon2.count);
-}
-
-void Update(Projections& projections)
-{
-    const Polygon& p1 = *projections.polygon1;
-    const Polygon& p2 = *projections.polygon2;
-    std::fill(projections.proj11.begin(), projections.proj11.end(), Projection{});
-    std::fill(projections.proj12.begin(), projections.proj12.end(), Projection{});
-    std::fill(projections.proj21.begin(), projections.proj21.end(), Projection{});
-    std::fill(projections.proj22.begin(), projections.proj22.end(), Projection{});
-
-    for (size_t i = 0; i < p1.count; i++)
-    {
-        const Vector2& axis = p1.worldNormals[i];
-        Project(p1.worldVertices, axis, projections.proj11[i].min, projections.proj11[i].max);
-        Project(p2.worldVertices, axis, projections.proj21[i].min, projections.proj21[i].max);
-    }
-
-    for (size_t i = 0; i < p2.count; i++)
-    {
-        const Vector2& axis = p2.worldNormals[i];
-        Project(p1.worldVertices, axis, projections.proj12[i].min, projections.proj12[i].max);
-        Project(p2.worldVertices, axis, projections.proj22[i].min, projections.proj22[i].max);
-    }
-}
-
-void Render(const Projections& projections)
-{
-    // Normals are in the range [-1, 1] whereas vertices are in the range [0, SCREEN].
-    // Any projections not in the +x +y quadrant won't be visible, hence the re-map!
-    auto render = [](const Vector2& axis, float min, float max, float offset, Color color)
-    {
-        min = Remap(min, -SCREEN_WIDTH, SCREEN_WIDTH, 0.0f, SCREEN_HEIGHT * 0.5f);
-        max = Remap(max, -SCREEN_WIDTH, SCREEN_WIDTH, 0.0f, SCREEN_HEIGHT * 0.5f);
-        Vector2 start = axis * min;
-        Vector2 end = axis * max;
-        Vector2 tangent = CENTER + PerpendicularR(axis) * offset;
-        DrawLineEx(start + tangent, end + tangent, 4.0f, color);
-    };
-
-    const float offset1 = 115.0f;
-    const float offset2 = 125.0f;
-    const Color color1 = SKYBLUE;
-    const Color color2 = PINK;
-
-    const Polygon& p1 = *projections.polygon1;
-    const Polygon& p2 = *projections.polygon2;
-
-    for (size_t i = 0; i < p1.count; i++)
-    {
-        const Vector2& axis = p1.worldNormals[i];
-        render(axis, projections.proj11[i].min, projections.proj11[i].max, offset1, color1);
-        render(axis, projections.proj21[i].min, projections.proj21[i].max, offset2, color2);
-    }
-
-    for (size_t i = 0; i < p2.count; i++)
-    {
-        const Vector2& axis = p2.worldNormals[i];
-        render(axis, projections.proj12[i].min, projections.proj12[i].max, offset2, color2);
-        render(axis, projections.proj22[i].min, projections.proj22[i].max, offset1, color1);
-    }
-}
-
-void RenderAxes(const Projections& projections)
-{
-    auto renderAxis = [](const Vector2& axis, Color color)
-    {
-        const float offset = 150.0f;
-        const float length = 400.0f;
-        Vector2 midpoint = CENTER + PerpendicularR(axis) * offset;
-        Vector2 start = midpoint + axis * length;
-        Vector2 end = midpoint - axis * length;
-        DrawLineDotted(start, end, 4.0f, color, 64);
-    };
-
-    for (const Vector2& axis : projections.polygon1->worldNormals)
-        renderAxis(axis, DARKBLUE);
-
-    for (const Vector2& axis : projections.polygon2->worldNormals)
-        renderAxis(axis, DARKPURPLE);
-}
-/*
- * Visualization End *
- */
-
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -327,10 +198,6 @@ int main(void)
         { 0.5f, 0.33f },
         { -0.5f, 0.33f }
     });
-
-    // Visualization only. Otherwise no need to store projections
-    Projections projections;
-    Create(projections, polygon1, polygon2);
 
     Transform2& t1 = polygon1.transform;
     t1.translation = { SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.5f };
@@ -390,21 +257,19 @@ int main(void)
         // Test if polygons are colliding and render them accordingly!
         Update(polygon1);
         Update(polygon2);
-        Update(projections);
 
-        // Don't resolve so you can see how the overlap changes with position!
-        //Vector2 mtv{};
-        //CheckCollisionPolygons(polygon1, polygon2, &mtv);
-        //t1.translation = t1.translation + mtv;
-        //Update(polygon1);
+        // Apply the mtv to polygon1 to resolve the collision!
+        Vector2 mtv{};
+        float restitution = 1.001f;
+        CheckCollisionPolygons(polygon1, polygon2, &mtv);
+        t1.translation = t1.translation + mtv * restitution;
+        Update(polygon1);
         Color color = CheckCollisionPolygons(polygon1, polygon2) ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
         Render(polygon1, color, 5.0f);
         Render(polygon2, color, 5.0f);
-        Render(projections);
-        RenderAxes(projections);
 
         // Render instructions
         DrawLineEx(t1.translation, t1.translation + forward * t1.scale, 5.0f, GRAY);
