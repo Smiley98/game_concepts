@@ -1,12 +1,43 @@
 #include "rlImGui.h"
-#include "Math.h"
-#include <vector>
+#include "Collision.h"
 
 // Dimensions must match in order for projection renders to work
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 constexpr Vector2 CENTER { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
 
+void CreateCapsule(Entity& entity, float r, float hl)
+{
+    entity.shape.type = CAPSULE;
+    entity.shape.geom.capsule.radius = 25.0f;
+    entity.shape.geom.capsule.halfLength = 75.0f;
+}
+
+int main(void)
+{
+    Entity entity1;
+    CreateCapsule(entity1, 25.0f, 75.0f);
+    entity1.transform.translation = CENTER;
+
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
+    SetTargetFPS(60);
+    while (!WindowShouldClose())
+    {
+        float dt = GetFrameTime();
+        entity1.transform.rotation = GetTime() * DEG2RAD * 100.0f;
+        entity1.Update(dt, {});
+
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        DrawCapsule(entity1.shape.geom.capsule, GREEN);
+
+        EndDrawing();
+    }
+    CloseWindow();
+    return 0;
+}
+
+/*
 struct Transform2
 {
     Vector2 translation{};
@@ -178,135 +209,6 @@ bool CheckCollisionPolygons(const Polygon& polygon1, const Polygon& polygon2, Ve
     return true;
 }
 
-/*
- * Visualization Begin *
- */
-void DrawLineDotted(Vector2 start, Vector2 end, float thick, Color color, size_t subdivisions)
-{
-    Vector2 delta = end - start;
-    float t = 1.0f / subdivisions;
-    for (size_t i = 0; i < subdivisions; i++)
-    {
-        if (i % 2 == 0)
-        {
-            float t0 = t * i;
-            float t1 = t * (i + 1);
-            Vector2 a = start + delta * t0;
-            Vector2 b = start + delta * t1;
-            DrawLineEx(start + delta * t0, start + delta * t1, thick, color);
-        }
-    }
-}
-
-struct Projection
-{
-    float min = FLT_MAX;
-    float max = -FLT_MAX;
-};
-
-struct Projections
-{
-    Polygon* polygon1 = nullptr;
-    Polygon* polygon2 = nullptr;
-    std::vector<Projection> proj11;  // 1 onto 1
-    std::vector<Projection> proj12;  // 1 onto 2
-    std::vector<Projection> proj21;  // 2 onto 1
-    std::vector<Projection> proj22;  // 2 onto 2
-};
-
-void Create(Projections& projections, const Polygon& polygon1, const Polygon& polygon2)
-{
-    projections.polygon1 = (Polygon*)&polygon1;
-    projections.polygon2 = (Polygon*)&polygon2;
-    projections.proj11.resize(polygon1.count);
-    projections.proj21.resize(polygon1.count);
-    projections.proj12.resize(polygon2.count);
-    projections.proj22.resize(polygon2.count);
-}
-
-void Update(Projections& projections)
-{
-    const Polygon& p1 = *projections.polygon1;
-    const Polygon& p2 = *projections.polygon2;
-    std::fill(projections.proj11.begin(), projections.proj11.end(), Projection{});
-    std::fill(projections.proj12.begin(), projections.proj12.end(), Projection{});
-    std::fill(projections.proj21.begin(), projections.proj21.end(), Projection{});
-    std::fill(projections.proj22.begin(), projections.proj22.end(), Projection{});
-
-    for (size_t i = 0; i < p1.count; i++)
-    {
-        const Vector2& axis = p1.worldNormals[i];
-        Project(p1.worldVertices, axis, projections.proj11[i].min, projections.proj11[i].max);
-        Project(p2.worldVertices, axis, projections.proj21[i].min, projections.proj21[i].max);
-    }
-
-    for (size_t i = 0; i < p2.count; i++)
-    {
-        const Vector2& axis = p2.worldNormals[i];
-        Project(p1.worldVertices, axis, projections.proj12[i].min, projections.proj12[i].max);
-        Project(p2.worldVertices, axis, projections.proj22[i].min, projections.proj22[i].max);
-    }
-}
-
-void Render(const Projections& projections)
-{
-    // Normals are in the range [-1, 1] whereas vertices are in the range [0, SCREEN].
-    // Any projections not in the +x +y quadrant won't be visible, hence the re-map!
-    auto render = [](const Vector2& axis, float min, float max, float offset, Color color)
-    {
-        min = Remap(min, -SCREEN_WIDTH, SCREEN_WIDTH, 0.0f, SCREEN_HEIGHT * 0.5f);
-        max = Remap(max, -SCREEN_WIDTH, SCREEN_WIDTH, 0.0f, SCREEN_HEIGHT * 0.5f);
-        Vector2 start = axis * min;
-        Vector2 end = axis * max;
-        Vector2 tangent = CENTER + PerpendicularR(axis) * offset;
-        DrawLineEx(start + tangent, end + tangent, 4.0f, color);
-    };
-
-    const float offset1 = 115.0f;
-    const float offset2 = 125.0f;
-    const Color color1 = SKYBLUE;
-    const Color color2 = PINK;
-
-    const Polygon& p1 = *projections.polygon1;
-    const Polygon& p2 = *projections.polygon2;
-
-    for (size_t i = 0; i < p1.count; i++)
-    {
-        const Vector2& axis = p1.worldNormals[i];
-        render(axis, projections.proj11[i].min, projections.proj11[i].max, offset1, color1);
-        render(axis, projections.proj21[i].min, projections.proj21[i].max, offset2, color2);
-    }
-
-    for (size_t i = 0; i < p2.count; i++)
-    {
-        const Vector2& axis = p2.worldNormals[i];
-        render(axis, projections.proj12[i].min, projections.proj12[i].max, offset2, color2);
-        render(axis, projections.proj22[i].min, projections.proj22[i].max, offset1, color1);
-    }
-}
-
-void RenderAxes(const Projections& projections)
-{
-    auto renderAxis = [](const Vector2& axis, Color color)
-    {
-        const float offset = 150.0f;
-        const float length = 400.0f;
-        Vector2 midpoint = CENTER + PerpendicularR(axis) * offset;
-        Vector2 start = midpoint + axis * length;
-        Vector2 end = midpoint - axis * length;
-        DrawLineDotted(start, end, 4.0f, color, 64);
-    };
-
-    for (const Vector2& axis : projections.polygon1->worldNormals)
-        renderAxis(axis, DARKBLUE);
-
-    for (const Vector2& axis : projections.polygon2->worldNormals)
-        renderAxis(axis, DARKPURPLE);
-}
-/*
- * Visualization End *
- */
-
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
@@ -419,3 +321,4 @@ int main(void)
     CloseWindow();
     return 0;
 }
+*/
