@@ -1542,7 +1542,7 @@ RMAPI Matrix Perspective(double fovy, double aspect, double near, double far)
 }
 
 // Get orthographic projection matrix
-RMAPI Matrix Ortho(double left, double right, double bottom, double top, double near, double far)
+RMAPI Matrix Perpendicular(double left, double right, double bottom, double top, double near, double far)
 {
     Matrix result = { 0 };
 

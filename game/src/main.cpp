@@ -3,53 +3,91 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-bool CircleCircle(Vector2 position1, Vector2 position2, float radius1, float radius2)
+struct Circle
 {
-    return Distance(position1, position2) <= radius1 + radius2;
+    Vector2 position;
+    float radius;
+};
+
+struct Plane
+{
+	Vector2 position;
+	Vector2 normal;
+};
+
+Vector2 Perpendicular(Vector2 v)
+{
+    return { -v.y, v.x };
+}
+
+bool CheckCollision(Circle circle, Plane plane)
+{
+	// Project vector from plane to circle onto plane normal to determine distance from plane
+	float distance = Dot(circle.position - plane.position, plane.normal);
+
+	// Point-circle collision from here -- simply compare distance to circle's radius!
+	return distance <= circle.radius;
 }
 
 int main(void)
 {
-    InitWindow(1280, 720, "Game");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
+    rlImGuiSetup(true);
     SetTargetFPS(60);
 
     const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    const float radius = 50.0f;
 
+    Plane plane;
+	plane.position = center;
+	plane.normal = { 1.0f, 0.0f };
+
+    Circle circle;
+	circle.position = center;
+	circle.radius = 25.0f;
+
+    float lineLength = 69420.0f;
+    float planeAngle = 0.0f;
+
+    float angularSpeed = 100.0f * DEG2RAD;
     while (!WindowShouldClose())
     {
-        const Vector2 cursor = GetMousePosition();
+        float angularDelta = angularSpeed * GetFrameTime();
+        if (IsKeyDown(KEY_Q))
+            planeAngle -= angularDelta;
+        if (IsKeyDown(KEY_E))
+            planeAngle += angularDelta;
+        planeAngle += PI * 2.0f;
+        planeAngle = fmodf(planeAngle, PI * 2.0f);
+        
+        float distance = Dot(circle.position - plane.position, plane.normal);
+        Vector2 proj = plane.position + plane.normal * distance;
 
-        const bool collision = CircleCircle(cursor, center, radius, radius);
-        const Color color = collision ? RED : GREEN;
+		Vector2 planeDirection = Direction(planeAngle);
+        plane.normal = Perpendicular(planeDirection);
+		circle.position = GetMousePosition();
 
-        const float radiiSum = radius + radius;
-        const float distance = Distance(cursor, center);
+		bool collision = CheckCollision(circle, plane);
+		Color color = collision ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        DrawCircleV(center, radius, color);
-        DrawCircleV(cursor, radius, color);
+		DrawLineEx(center - planeDirection * lineLength, center + planeDirection * lineLength, 5.0f, color);
+		DrawLineEx(center, center + plane.normal * lineLength, 5.0f, GRAY);
+		DrawCircleV(circle.position, circle.radius, color);
+        DrawCircleV(proj, circle.radius, ORANGE);
 
-        const float thickness = 5.0f;
-        Vector2 start{ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.75f };
-        DrawLineEx(start, start + Vector2{ 1.0f, 0.0f } * radiiSum, thickness, BLUE);
-        start.y += thickness;
-        DrawLineEx(start, start + Vector2{ 1.0f, 0.0f } * distance, thickness, PURPLE);
+        DrawText("Move the circle with your mouse, rotate the plane with E/Q.", 10, 10, 20, BLUE);
+        DrawText("The circle will turn red/green depending on which side of the plane its on.", 10, 30, 20, color);
+        DrawText("The orange circle is the projection of the circle onto the plane's normal.", 10, 50, 20, ORANGE);
+        DrawText(TextFormat("Plane Angle: %f", planeAngle * RAD2DEG), 10, 70, 20, GRAY);
 
-        DrawText(TextFormat("Radii Sum: %f", radiiSum), 10, 10, 20, BLUE);
-        DrawText(TextFormat("Distance: %f", distance), 10, 30, 20, PURPLE);
-
+        rlImGuiBegin();
+        rlImGuiEnd();
         EndDrawing();
     }
 
+    rlImGuiShutdown();
     CloseWindow();
     return 0;
 }
-
-// Optimization -- square distance and radii to remove square-root from calculation
-//bool CircleCircle(Vector2 position1, Vector2 position2, float radius1, float radius2)
-//{
-//    return DistanceSqr(position1, position2) <= powf((radius1 + radius2), 2.0f);
-//}
