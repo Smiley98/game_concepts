@@ -47,8 +47,8 @@ void NearestCirclePoints(Capsule capsule1, Capsule capsule2, Vector2& nearest1, 
     // 2. Use that to find the point along 2 closest to 1
     // 3. Use the point along 2 closest to 1 to find the point along 1 closest to 2
     nearest1 = min < 2 ? top1 : bot1;
-    nearest2 = NearestPoint(bot2, top2, nearest1);
-    nearest1 = NearestPoint(bot1, top1, nearest2);
+    nearest2 = ProjectPointLine(bot2, top2, nearest1);
+    nearest1 = ProjectPointLine(bot1, top1, nearest2);
 }
 
 bool CircleCircle(Circle circle1, Circle circle2)
