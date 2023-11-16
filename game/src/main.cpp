@@ -20,13 +20,15 @@ Vector2 Perpendicular(Vector2 v)
     return { -v.y, v.x };
 }
 
-bool CheckCollision(Circle circle, Plane plane)
+bool CheckCollision(Circle circle, Plane plane, Vector2* mtv = nullptr)
 {
-	// Project vector from plane to circle onto plane normal to determine distance from plane
 	float distance = Dot(circle.position - plane.position, plane.normal);
-
-	// Point-circle collision from here -- simply compare distance to circle's radius!
-	return distance <= circle.radius;
+    bool collision = distance <= circle.radius;
+    if (collision && mtv != nullptr)
+    {
+        *mtv = plane.normal * (circle.radius - distance);
+    }
+    return collision;
 }
 
 int main(void)
@@ -56,6 +58,7 @@ int main(void)
             planeAngle -= angularDelta;
         if (IsKeyDown(KEY_E))
             planeAngle += angularDelta;
+
         planeAngle += PI * 2.0f;
         planeAngle = fmodf(planeAngle, PI * 2.0f);
         
@@ -66,8 +69,11 @@ int main(void)
         plane.normal = Perpendicular(planeDirection);
 		circle.position = GetMousePosition();
 
-		bool collision = CheckCollision(circle, plane);
-		Color color = collision ? RED : GREEN;
+        Vector2 mtv;
+		bool collision = CheckCollision(circle, plane, &mtv);
+        if (collision)
+            circle.position = circle.position + mtv;
+		Color color = CheckCollision(circle, plane) ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -78,8 +84,8 @@ int main(void)
         DrawCircleV(proj, circle.radius, ORANGE);
 
         DrawText("Move the circle with your mouse, rotate the plane with E/Q.", 10, 10, 20, BLUE);
-        DrawText("The circle will turn red/green depending on which side of the plane its on.", 10, 30, 20, color);
-        DrawText("The orange circle is the projection of the circle onto the plane's normal.", 10, 50, 20, ORANGE);
+        DrawText("The orange circle is the projection of the circle onto the plane's normal.", 10, 30, 20, ORANGE);
+        DrawText("The MTV will resolve the circle from the plane.", 10, 50, 20, color);
         DrawText(TextFormat("Plane Angle: %f", planeAngle * RAD2DEG), 10, 70, 20, GRAY);
 
         rlImGuiBegin();
