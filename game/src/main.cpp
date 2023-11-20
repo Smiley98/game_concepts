@@ -20,6 +20,7 @@ int main(void)
 
     // Initial angle of 0 degrees ([1, 0] = horizontal = 0 degrees)
     Vector2 direction{ 1.0f, 0.0f };
+    const Vector2 identity{ 1.0f, 0.0f };
     
     while (!WindowShouldClose())
     {
@@ -51,6 +52,8 @@ int main(void)
                 input = KEYBOARD;
         }
 
+        float dot = Dot(identity, direction);
+
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
@@ -62,6 +65,7 @@ int main(void)
         DrawLineEx(top, bot, 5.0f, BLACK);
         DrawLineEx(left, right, 5.0f, BLACK);
         DrawLineEx(center, center + direction * radius, 10.0f, GOLD);
+        DrawLineEx(center, center + identity * radius, 5.0f, GREEN);
 
         const int fontSize = 20;
         const char* text0 = "0";
@@ -79,9 +83,10 @@ int main(void)
 
         const float angle180 = Angle(direction) * RAD2DEG;      //[-180, 180]
         const float angle360 = fmodf(angle180 + 360.0f, 360.0f);//[0, 360]
-        DrawText(TextFormat("Direction: [%f, %f]", direction.x, direction.y), 10, 10, fontSize, GRAY);
-        DrawText(TextFormat("Signed Angle: %f", angle180), 10, 10 + fontSize, fontSize, GRAY);
-        DrawText(TextFormat("Unsigned Angle: %f", angle360), 10, 10 + 2 * fontSize, fontSize, GRAY);
+        DrawText(TextFormat("Direction: [%f, %f]", direction.x, direction.y), 10, 10, fontSize, RED);
+        DrawText(TextFormat("Signed Angle: %f", angle180), 10, 10 + fontSize, fontSize, BLUE);
+        DrawText(TextFormat("Unsigned Angle: %f", angle360), 10, 10 + 2 * fontSize, fontSize, PURPLE);
+        DrawText(TextFormat("Dot Product: %f", dot), 10, 10 + 3 * fontSize, fontSize, GREEN);
         EndDrawing();
     }
 
