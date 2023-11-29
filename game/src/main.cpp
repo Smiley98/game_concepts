@@ -52,7 +52,10 @@ int main(void)
                 input = KEYBOARD;
         }
 
-        float dot = Dot(identity, direction);
+        // If both vectors are unit vectors, then proj A onto B = Dot(A, B) * B
+        // "How similar A is to B times direction of B 
+        float dot = Dot(direction, identity);
+        Vector2 proj = identity * dot;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -66,6 +69,7 @@ int main(void)
         DrawLineEx(left, right, 5.0f, BLACK);
         DrawLineEx(center, center + direction * radius, 10.0f, GOLD);
         DrawLineEx(center, center + identity * radius, 5.0f, GREEN);
+        DrawCircleV(center + proj * radius, 5.0f, ORANGE);
 
         const int fontSize = 20;
         const char* text0 = "0";
