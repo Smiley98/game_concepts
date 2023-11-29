@@ -16,7 +16,8 @@ Vector2 CollisionVelocity(Vector2 vi, Vector2 n, float cf, float cr, Vector2& im
     Vector2 tangent = Normalize(velBA - n * t); // Perpendicular to the normal
     float jt = -Dot(velBA, tangent);            // How similar velocity is to tangent (* -1 to point backwards since friction)
     // ie if very similar, then lots of friction. Otherwise, velocity is very similar to normal, so not much friction
-    jt = Clamp(jt, -j * cf, j * cf);
+    float mu = sqrtf(cf + 1.0f);
+    jt = Clamp(jt, -j * mu, j * mu);
     friction = tangent * jt;
 
     return impulse + friction;
