@@ -3,59 +3,50 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-enum Input
+// Assuming mass of B is infinite
+Vector2 CollisionVelocity(Vector2 vi, Vector2 n, float cf, float cr, Vector2& impulse, Vector2& friction)
 {
-    KEYBOARD,
-    MOUSE
-};
+    Vector2 velBA = vi; // (a.vel - b.vel, b = 0 so velBA = a)
+    float t = Dot(velBA, n);
+    if (t > 0.0f) return Vector2Zero();
+
+    float j = -(1.0f + cr) * t;
+    impulse = vi + n * j;
+
+    Vector2 tangent = Normalize(velBA - n * t); // Perpendicular to the normal
+    float jt = -Dot(velBA, tangent);            // How similar velocity is to tangent (* -1 to point backwards since friction)
+    // ie if very similar, then lots of friction. Otherwise, velocity is very similar to normal, so not much friction
+    jt = Clamp(jt, -j * cf, j * cf);
+    friction = tangent * jt;
+
+    return impulse + friction;
+}
 
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    Input input = KEYBOARD;
+    int state = 0;  // 0 = none, 1 = velocity, 2 = normal
     const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
     const float radius = 250.0f;
 
-    // Initial angle of 0 degrees ([1, 0] = horizontal = 0 degrees)
-    Vector2 direction{ 1.0f, 0.0f };
-    const Vector2 identity{ 1.0f, 0.0f };
+    float speed = 1.0f;
+    Vector2 direction = { 1.0f, 0.0f };
+    Vector2 normal = { 0.0f, 1.0f };
+    float cf = 1.0f;
+    float cr = 1.0f;
     
     while (!WindowShouldClose())
     {
-        if (input == KEYBOARD)
-        {
-            const float dt = GetFrameTime();
+        if (IsKeyPressed(KEY_SPACE))
+            ++state %= 3;
 
-            // Rotate 100 degrees per second
-            const float rotationSpeed = 100.0f * DEG2RAD;
+        if (state == 1)
+            direction = Normalize(center - GetMousePosition());
 
-            // Convert from units per second to units per frame
-            const float rotation = rotationSpeed * dt;
-
-            // Rotate direction either left or right
-            if (IsKeyDown(KEY_Q))
-                direction = Rotate(direction, -rotation);
-            else if (IsKeyDown(KEY_E))
-                direction = Rotate(direction, rotation);
-
-            if (IsKeyPressed(KEY_SPACE))
-                input = MOUSE;
-        }
-        else if (input == MOUSE)
-        {
-            // Calculate direction from screen center to mouse cursor
-            direction = Normalize(GetMousePosition() - center);
-
-            if (IsKeyPressed(KEY_SPACE))
-                input = KEYBOARD;
-        }
-
-        // If both vectors are unit vectors, then proj A onto B = Dot(A, B) * B
-        // "How similar A is to B times direction of B 
-        float dot = Dot(direction, identity);
-        Vector2 proj = identity * dot;
+        if (state == 2)
+            normal = Normalize(GetMousePosition() - center);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -64,12 +55,17 @@ int main(void)
         const Vector2 bot = center + Vector2{ 0.0f, radius };
         const Vector2 left = center + Vector2{ -radius, 0.0f };
         const Vector2 right = center + Vector2{ radius, 0.0f };
+        Vector2 vi = direction * speed;
+        Vector2 impulse, friction;
+        Vector2 vf = CollisionVelocity(vi, normal, cf, cr, impulse, friction);
+
         DrawCircleV(center, radius, RED);
         DrawLineEx(top, bot, 5.0f, BLACK);
         DrawLineEx(left, right, 5.0f, BLACK);
-        DrawLineEx(center, center + direction * radius, 10.0f, GOLD);
-        DrawLineEx(center, center + identity * radius, 5.0f, GREEN);
-        DrawCircleV(center + proj * radius, 5.0f, ORANGE);
+        DrawLineEx(center, center + direction * speed * radius, 10.0f, GOLD);
+        DrawLineEx(center, center + normal * radius, 5.0f, GREEN);
+        DrawLineEx(center, center + impulse * radius, 5.0f, BLUE);
+        DrawLineEx(center, center + friction * radius, 5.0f, PURPLE);
 
         const int fontSize = 20;
         const char* text0 = "0";
@@ -84,13 +80,6 @@ int main(void)
         DrawText(text90, bot.x - size90 / 2, bot.y + fontSize / 2, fontSize, DARKGRAY);
         DrawText(text180, left.x - (size180 + fontSize / 2), left.y - fontSize / 2, fontSize, DARKGRAY);
         DrawText(text270, top.x - size270 / 2, top.y - (3 * fontSize / 2), fontSize, DARKGRAY);
-
-        const float angle180 = Angle(direction) * RAD2DEG;      //[-180, 180]
-        const float angle360 = fmodf(angle180 + 360.0f, 360.0f);//[0, 360]
-        DrawText(TextFormat("Direction: [%f, %f]", direction.x, direction.y), 10, 10, fontSize, RED);
-        DrawText(TextFormat("Signed Angle: %f", angle180), 10, 10 + fontSize, fontSize, BLUE);
-        DrawText(TextFormat("Unsigned Angle: %f", angle360), 10, 10 + 2 * fontSize, fontSize, PURPLE);
-        DrawText(TextFormat("Dot Product: %f", dot), 10, 10 + 3 * fontSize, fontSize, GREEN);
         EndDrawing();
     }
 
