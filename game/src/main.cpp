@@ -28,10 +28,6 @@ void CapsulePoints(Capsule capsule, Vector2& top, Vector2& bot)
 
 void NearestCirclePoints(Capsule capsule1, Capsule capsule2, Vector2& nearest1, Vector2& nearest2)
 {
-    //Vector2 top1 = capsule1.position + capsule1.direction * capsule1.halfLength;
-    //Vector2 top2 = capsule2.position + capsule2.direction * capsule2.halfLength;
-    //Vector2 bot1 = capsule1.position - capsule1.direction * capsule1.halfLength;
-    //Vector2 bot2 = capsule2.position - capsule2.direction * capsule2.halfLength;
     Vector2 top1, top2, bot1, bot2;
     CapsulePoints(capsule1, top1, bot1);
     CapsulePoints(capsule2, top2, bot2);
@@ -100,7 +96,7 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    float angularSpeed = 100.0f;    // 100 degrees per second
+    float angularSpeed = 100.0f * DEG2RAD;
     float radius = 25.0f;
     float halfLength = 50.0f;
 
@@ -123,13 +119,13 @@ int main(void)
         capsule2.position = GetMousePosition();
         const float dt = GetFrameTime();
         if (IsKeyDown(KEY_E))
-            capsule1.direction = Rotate(capsule1.direction, angularSpeed * dt * DEG2RAD);
+            capsule1.direction = Rotate(capsule1.direction, angularSpeed * dt);
         if (IsKeyDown(KEY_Q))
-            capsule1.direction = Rotate(capsule1.direction, -angularSpeed * dt * DEG2RAD);
+            capsule1.direction = Rotate(capsule1.direction, -angularSpeed * dt);
         if (IsKeyDown(KEY_D))
-            capsule2.direction = Rotate(capsule2.direction, angularSpeed * dt * DEG2RAD);
+            capsule2.direction = Rotate(capsule2.direction, angularSpeed * dt);
         if (IsKeyDown(KEY_A))
-            capsule2.direction = Rotate(capsule2.direction, -angularSpeed * dt * DEG2RAD);
+            capsule2.direction = Rotate(capsule2.direction, -angularSpeed * dt);
 
         // Capsule collision works by finding the two nearest circles and testing them
         Color circleColor = CircleCapsule(circle, capsule1) ? RED : GREEN;
