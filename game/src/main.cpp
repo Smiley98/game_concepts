@@ -20,12 +20,21 @@ struct Capsule
     // Distance between position (center) and top/bot "circle"
 };
 
+void CapsulePoints(Capsule capsule, Vector2& top, Vector2& bot)
+{
+    top = capsule.position + capsule.direction * capsule.halfLength;
+    bot = capsule.position - capsule.direction * capsule.halfLength;
+}
+
 void NearestCirclePoints(Capsule capsule1, Capsule capsule2, Vector2& nearest1, Vector2& nearest2)
 {
-    Vector2 top1 = capsule1.position + capsule1.direction * capsule1.halfLength;
-    Vector2 top2 = capsule2.position + capsule2.direction * capsule2.halfLength;
-    Vector2 bot1 = capsule1.position - capsule1.direction * capsule1.halfLength;
-    Vector2 bot2 = capsule2.position - capsule2.direction * capsule2.halfLength;
+    //Vector2 top1 = capsule1.position + capsule1.direction * capsule1.halfLength;
+    //Vector2 top2 = capsule2.position + capsule2.direction * capsule2.halfLength;
+    //Vector2 bot1 = capsule1.position - capsule1.direction * capsule1.halfLength;
+    //Vector2 bot2 = capsule2.position - capsule2.direction * capsule2.halfLength;
+    Vector2 top1, top2, bot1, bot2;
+    CapsulePoints(capsule1, top1, bot1);
+    CapsulePoints(capsule2, top2, bot2);
 
     Vector2 lines[4]
     {
@@ -57,6 +66,14 @@ bool CircleCircle(Circle circle1, Circle circle2)
         powf(circle1.radius + circle2.radius, 2.0f);
 }
 
+bool CircleCapsule(Circle circle, Capsule capsule)
+{
+    Vector2 top = capsule.position + capsule.direction * capsule.halfLength;
+    Vector2 bot = capsule.position - capsule.direction * capsule.halfLength;
+    Vector2 proj = ProjectPointLine(top, bot, circle.position);
+    return CircleCircle(circle, { proj, capsule.radius });
+}
+
 bool CapsuleCapsule(Capsule capsule1, Capsule capsule2)
 {
     Vector2 nearest1, nearest2;
@@ -66,8 +83,8 @@ bool CapsuleCapsule(Capsule capsule1, Capsule capsule2)
 
 void DrawCapsule(Capsule capsule, Color color)
 {
-    Vector2 top = capsule.position + capsule.direction * capsule.halfLength;
-    Vector2 bot = capsule.position - capsule.direction * capsule.halfLength;
+    Vector2 top, bot;
+    CapsulePoints(capsule, top, bot);
     DrawCircleV(top, capsule.radius, color);
     DrawCircleV(bot, capsule.radius, color);
 
@@ -84,15 +101,22 @@ int main(void)
     SetTargetFPS(60);
 
     float angularSpeed = 100.0f;    // 100 degrees per second
+    float radius = 25.0f;
+    float halfLength = 50.0f;
+
+    Circle circle;
+    circle.position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.25f };
+    circle.radius = radius;
+
     Capsule capsule1;
     capsule1.position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    capsule1.radius = 25.0f;
-    capsule1.halfLength = 50.0f;
+    capsule1.radius = radius;
+    capsule1.halfLength = halfLength;
 
     Capsule capsule2;
     capsule2.direction = Direction(90.0f * DEG2RAD);
-    capsule2.radius = capsule1.radius;
-    capsule2.halfLength = capsule1.halfLength;
+    capsule2.radius = radius;
+    capsule2.halfLength = halfLength;
 
     while (!WindowShouldClose())
     {
@@ -107,22 +131,30 @@ int main(void)
         if (IsKeyDown(KEY_A))
             capsule2.direction = Rotate(capsule2.direction, -angularSpeed * dt * DEG2RAD);
 
-        // Capsule collision works by finding the two nearest circles and testing them 
-        bool collision = CapsuleCapsule(capsule1, capsule2);
-        Color color = collision ? RED : GREEN;
+        // Capsule collision works by finding the two nearest circles and testing them
+        Color circleColor = CircleCapsule(circle, capsule1) ? RED : GREEN;
+        Color capsule1Color = CapsuleCapsule(capsule1, capsule2) ? RED : GREEN;
+        Color capsule2Color = CircleCapsule(circle, capsule2) || CapsuleCapsule(capsule1, capsule2) ? RED : GREEN;
+
+        Vector2 top, bot;
+        CapsulePoints(capsule2, top, bot);
+        Vector2 proj = ProjectPointLine(bot, top, circle.position);
 
         Vector2 nearest1, nearest2;
         NearestCirclePoints(capsule1, capsule2, nearest1, nearest2);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCapsule(capsule1, color);
-        DrawCapsule(capsule2, color);
-        DrawCircleV(nearest1, capsule1.radius, { 0, 121, 241, 196 });
-        DrawCircleV(nearest2, capsule2.radius, { 200, 122, 255, 196 });
-        DrawText("The capsules collide when the blue & purple circles overlap", 10, 10, 20, GRAY);
-        DrawText("Press D & A to rotate the cursor-controlled capsule", 10, 30, 20, PURPLE);
-        DrawText("Press E & Q to rotate the stationary capsule", 10, 50, 20, BLUE);
+        DrawCircleV(circle.position, circle.radius, circleColor);
+        DrawCapsule(capsule1, capsule1Color);
+        DrawCapsule(capsule2, capsule2Color);
+        DrawCircleV(proj, circle.radius, SKYBLUE);
+        DrawCircleV(nearest1, capsule1.radius, BLUE);
+        DrawCircleV(nearest2, capsule2.radius, PURPLE);
+        DrawText("The circle & capsule collide when the teal circle overlaps the circle", 10, 10, 20, GRAY);
+        DrawText("The capsules collide when the blue & purple circles overlap", 10, 30, 20, GRAY);
+        DrawText("Press D & A to rotate the cursor-controlled capsule", 10, 50, 20, PURPLE);
+        DrawText("Press E & Q to rotate the stationary capsule", 10, 70, 20, BLUE);
         EndDrawing();
     }
 
