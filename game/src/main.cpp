@@ -1,7 +1,22 @@
 #include "rlImGui.h"
+#include "rlgl.h"
 #include "Math.h"
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
+
+void DrawArrow(Vector2 a, Vector2 b, float angle = 10.0f)
+{
+    angle *= DEG2RAD;
+    Vector2 AB = b - a;
+    float length = Length(b - a);
+    Vector2 direction = Normalize(b - a);
+    Vector2 side1 = Rotate(direction,  angle);
+    Vector2 side2 = Rotate(direction, -angle);
+
+    DrawLineV(a, b, ORANGE);
+    DrawLineV(b, b - side1 * length * 0.2f, ORANGE);
+    DrawLineV(b, b - side2 * length * 0.2f, ORANGE);
+}
 
 // Assuming mass of B is infinite
 Vector2 CollisionVelocity(Vector2 vi, Vector2 n, float cf, float cr, Vector2& impulse, Vector2& friction)
@@ -38,16 +53,20 @@ int main(void)
     float cf = 1.0f;
     float cr = 1.0f;
     
+    
     while (!WindowShouldClose())
     {
+        Vector2 mouse = GetMousePosition();
+        mouse.y = SCREEN_HEIGHT - mouse.y;
+
         if (IsKeyPressed(KEY_SPACE))
             ++state %= 3;
 
         if (state == 1)
-            direction = Normalize(center - GetMousePosition());
+            direction = Normalize(mouse - center);
 
         if (state == 2)
-            normal = Normalize(GetMousePosition() - center);
+            normal = Normalize(mouse - center);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -61,12 +80,15 @@ int main(void)
         Vector2 vf = CollisionVelocity(vi, normal, cf, cr, impulse, friction);
 
         DrawCircleV(center, radius, RED);
-        DrawLineEx(top, bot, 5.0f, BLACK);
-        DrawLineEx(left, right, 5.0f, BLACK);
-        DrawLineEx(center, center + direction * speed * radius, 10.0f, GOLD);
-        DrawLineEx(center, center + normal * radius, 5.0f, GREEN);
-        DrawLineEx(center, center + impulse * radius, 5.0f, BLUE);
-        DrawLineEx(center, center + friction * radius, 5.0f, PURPLE);
+        //DrawLineEx(top, bot, 5.0f, BLACK);
+        //DrawLineEx(left, right, 5.0f, BLACK);
+        //DrawLineEx(center, center + direction * speed * radius, 10.0f, GOLD);
+        //DrawLineEx(center, center + normal * radius, 5.0f, GREEN);
+        //DrawLineEx(center, center + impulse * radius, 5.0f, BLUE);
+        //DrawLineEx(center, center + friction * radius, 5.0f, PURPLE);
+        DrawArrow(center, center + direction * radius);
+
+        DrawText(TextFormat("%f %f", direction.x, direction.y), 10, 10, 20, GREEN);
 
         const int fontSize = 20;
         const char* text0 = "0";
