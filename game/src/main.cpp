@@ -4,18 +4,18 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-void DrawArrow(Vector2 a, Vector2 b, float angle = 10.0f)
+void DrawArrow(Vector2 a, Vector2 b, float thick, Color color = WHITE)
 {
-    angle *= DEG2RAD;
+    float angle = 10.0f * DEG2RAD;
     Vector2 AB = b - a;
     float length = Length(b - a);
     Vector2 direction = Normalize(b - a);
     Vector2 side1 = Rotate(direction,  angle);
     Vector2 side2 = Rotate(direction, -angle);
 
-    DrawLineV(a, b, ORANGE);
-    DrawLineV(b, b - side1 * length * 0.2f, ORANGE);
-    DrawLineV(b, b - side2 * length * 0.2f, ORANGE);
+    DrawLineEx(a, b, thick, color);
+    DrawLineEx(b, b - side1 * length * 0.2f, thick, color);
+    DrawLineEx(b, b - side2 * length * 0.2f, thick, color);
 }
 
 // Assuming mass of B is infinite
@@ -31,11 +31,16 @@ Vector2 CollisionVelocity(Vector2 vi, Vector2 n, float cf, float cr, Vector2& im
     Vector2 tangent = Normalize(velBA - n * t); // Perpendicular to the normal
     float jt = -Dot(velBA, tangent);            // How similar velocity is to tangent (* -1 to point backwards since friction)
     // ie if very similar, then lots of friction. Otherwise, velocity is very similar to normal, so not much friction
-    float mu = sqrtf(cf + 1.0f);
+    float mu = sqrtf(cf + 1.0f);    // this is always 1.4 with my constant coefficient of friction of 1.0 (not the issue)!
     jt = Clamp(jt, -j * mu, j * mu);
     friction = tangent * jt;
 
     return impulse + friction;
+}
+
+Vector2 ToScreen(Vector2 v)
+{
+    return { v.x, SCREEN_HEIGHT - v.y };
 }
 
 int main(void)
@@ -43,7 +48,7 @@ int main(void)
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     SetTargetFPS(60);
 
-    int state = 0;  // 0 = none, 1 = velocity, 2 = normal
+    int state = 1;
     const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
     const float radius = 250.0f;
 
@@ -53,7 +58,6 @@ int main(void)
     float cf = 1.0f;
     float cr = 1.0f;
     
-    
     while (!WindowShouldClose())
     {
         Vector2 mouse = GetMousePosition();
@@ -62,11 +66,11 @@ int main(void)
         if (IsKeyPressed(KEY_SPACE))
             ++state %= 3;
 
+        if (state == 0)
+            normal = Normalize(mouse - center);
+
         if (state == 1)
             direction = Normalize(mouse - center);
-
-        if (state == 2)
-            normal = Normalize(mouse - center);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -80,15 +84,15 @@ int main(void)
         Vector2 vf = CollisionVelocity(vi, normal, cf, cr, impulse, friction);
 
         DrawCircleV(center, radius, RED);
-        //DrawLineEx(top, bot, 5.0f, BLACK);
-        //DrawLineEx(left, right, 5.0f, BLACK);
-        //DrawLineEx(center, center + direction * speed * radius, 10.0f, GOLD);
-        //DrawLineEx(center, center + normal * radius, 5.0f, GREEN);
-        //DrawLineEx(center, center + impulse * radius, 5.0f, BLUE);
-        //DrawLineEx(center, center + friction * radius, 5.0f, PURPLE);
-        DrawArrow(center, center + direction * radius);
+        DrawLineEx(top, bot, 5.0f, BLACK);
+        DrawLineEx(left, right, 5.0f, BLACK);
+        DrawArrow(center, ToScreen(center + normal * radius), 5.0f, GREEN);
+        DrawArrow(center, ToScreen(center + impulse * radius), 5.0f, BLUE);
+        DrawArrow(center, ToScreen(center + friction * radius), 5.0f, PURPLE);
+        DrawArrow(center, ToScreen(center + direction * radius), 5.0f, GOLD);
 
-        DrawText(TextFormat("%f %f", direction.x, direction.y), 10, 10, 20, GREEN);
+        DrawText(TextFormat("Velocity: %f %f", direction.x, direction.y), 10, 10, 20, GOLD);
+        DrawText(TextFormat("Normal: %f %f", normal.x, normal.y), 10, 30, 20, GREEN);
 
         const int fontSize = 20;
         const char* text0 = "0";
