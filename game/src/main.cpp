@@ -8,6 +8,18 @@ bool CircleCircle(Vector2 position1, Vector2 position2, float radius1, float rad
     return Distance(position1, position2) <= radius1 + radius2;
 }
 
+bool CircleRect(Vector2 circleCenter, float radius, Vector2 rectCenter, Vector2 halfExtents)
+{
+    Vector2 nearest;
+    float xMin = rectCenter.x - halfExtents.x;
+    float xMax = rectCenter.x + halfExtents.x;
+    float yMin = rectCenter.y - halfExtents.y;
+    float yMax = rectCenter.y + halfExtents.y;
+    nearest.x = fabsf(circleCenter.x - xMin) < fabsf(circleCenter.x - xMax) ? xMin : xMax;
+    nearest.y = fabsf(circleCenter.y - yMin) < fabsf(circleCenter.y - yMax) ? yMin : yMax;
+    return Distance(circleCenter, nearest) <= radius;
+}
+
 int main(void)
 {
     InitWindow(1280, 720, "Game");
@@ -18,28 +30,23 @@ int main(void)
 
     while (!WindowShouldClose())
     {
-        const Vector2 cursor = GetMousePosition();
+        const Vector2 mouse = GetMousePosition();
+        const float rw = 60.0f;
+        const float rh = 40.0f;
 
-        const bool collision = CircleCircle(cursor, center, radius, radius);
-        const Color color = collision ? RED : GREEN;
-
-        const float radiiSum = radius + radius;
-        const float distance = Distance(cursor, center);
+        Color color = CircleRect(center, radius, mouse, { rw * 0.5f, rh * 0.5f }) ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
         DrawCircleV(center, radius, color);
-        DrawCircleV(cursor, radius, color);
 
-        const float thickness = 5.0f;
-        Vector2 start{ SCREEN_WIDTH * 0.25f, SCREEN_HEIGHT * 0.75f };
-        DrawLineEx(start, start + Vector2{ 1.0f, 0.0f } * radiiSum, thickness, BLUE);
-        start.y += thickness;
-        DrawLineEx(start, start + Vector2{ 1.0f, 0.0f } * distance, thickness, PURPLE);
-
-        DrawText(TextFormat("Radii Sum: %f", radiiSum), 10, 10, 20, BLUE);
-        DrawText(TextFormat("Distance: %f", distance), 10, 30, 20, PURPLE);
+        Rectangle r;
+        r.x = mouse.x - rw * 0.5f;
+        r.y = mouse.y - rh * 0.5f;
+        r.width = rw;
+        r.height = rh;
+        DrawRectangleRec(r, color);
 
         EndDrawing();
     }
