@@ -3,17 +3,25 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-bool CircleRect(Vector2 circleCenter, float radius, Vector2 rectCenter, Vector2 halfExtents)
+// mtv points from rect to circle
+inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 extents, Vector2* mtv = nullptr)
 {
-    Vector2 nearest;
-    float xMin = rectCenter.x - halfExtents.x;
-    float xMax = rectCenter.x + halfExtents.x;
-    float yMin = rectCenter.y - halfExtents.y;
-    float yMax = rectCenter.y + halfExtents.y;
-    nearest.x = fabsf(circleCenter.x - xMin) < fabsf(circleCenter.x - xMax) ? xMin : xMax;
-    nearest.y = fabsf(circleCenter.y - yMin) < fabsf(circleCenter.y - yMax) ? yMin : yMax;
-    return Distance(circleCenter, nearest) <= radius;
-    // Optimization -- return DistanceSqr(circleCenter, nearest) <= radius * radius;
+    Vector2 nearest = circle;
+    float xMin = rect.x - extents.x;
+    float xMax = rect.x + extents.x;
+    float yMin = rect.y - extents.y;
+    float yMax = rect.y + extents.y;
+
+    if (circle.x < xMin) nearest.x = xMin;
+    else if (circle.x > xMax) nearest.x = xMax;
+    if (circle.y < yMin) nearest.y = yMin;
+    else if (circle.y > yMax) nearest.y = yMax;
+
+    float distance = Length(circle - nearest);
+    bool collision = distance <= radius;
+    if (collision && mtv != nullptr)
+        *mtv = Normalize(circle - rect) * (radius - distance);
+    return collision;
 }
 
 int main(void)
@@ -21,46 +29,31 @@ int main(void)
     InitWindow(1280, 720, "Game");
     SetTargetFPS(60);
 
-    const Vector2 center{ SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    const float radius = 50.0f;
-
     while (!WindowShouldClose())
     {
-        const float rw = 60.0f;
-        const float rh = 40.0f;
-        const Vector2 mouse = GetMousePosition();
-        const Vector2 circleCenter = center;
-        const Vector2 rectCenter = mouse;
-        Color color = CircleRect(center, radius, mouse, { rw * 0.5f, rh * 0.5f }) ? RED : GREEN;
+        const float r = 50.0f;
+        const float w = 60.0f;
+        const float h = 40.0f;
+        const Vector2 circle = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+        const Vector2 rect = GetMousePosition();
+        Color color = CircleRect(circle, r, rect, { w * 0.5f, h * 0.5f }) ? RED : GREEN;
 
+        Vector2 nearest = circle;
+        float xMin = rect.x - w * 0.5f;
+        float xMax = rect.x + w * 0.5f;
+        float yMin = rect.y - h * 0.5f;
+        float yMax = rect.y + h * 0.5f;
 
-        Vector2 nearest;
-        float xMin = rectCenter.x - rw * 0.5f;
-        float xMax = rectCenter.x + rw * 0.5f;
-        float yMin = rectCenter.y - rh * 0.5f;
-        float yMax = rectCenter.y + rh * 0.5f;
-
-        float dxMin = fabsf(circleCenter.x - xMin);
-        float dxMax = fabsf(circleCenter.x - xMax);
-        float dyMin = fabsf(circleCenter.y - yMin);
-        float dyMax = fabsf(circleCenter.y - yMax);
-
-        nearest.x = fabsf(circleCenter.x - xMin) < fabsf(circleCenter.x - xMax) ? xMin : xMax;
-        nearest.y = fabsf(circleCenter.y - yMin) < fabsf(circleCenter.y - yMax) ? yMin : yMax;
-
-        Vector2 start{ 100.0f, 100.0f };
-        DrawLineEx(start, { start.x + dxMin, start.y }, 5.0f, RED);
-        start.y += 5.0f;
-        DrawLineEx(start, { start.x + dxMax, start.y }, 5.0f, ORANGE);
-        start.y += 5.0f;
-        DrawLineEx(start, { start.x + dyMin, start.y }, 5.0f, GREEN);
-        start.y += 5.0f;
-        DrawLineEx(start, { start.x + dyMax, start.y }, 5.0f, BLUE);
+        if (circle.x < xMin) nearest.x = xMin;
+        else if (circle.x > xMax) nearest.x = xMax;
+        if (circle.y < yMin) nearest.y = yMin;
+        else if (circle.y > yMax) nearest.y = yMax;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(center, radius, color);
-        DrawRectangleV({ mouse.x - rw * 0.5f, mouse.y - rh * 0.5f }, { rw, rh }, color);
+        DrawCircleV(circle, r, color);
+        DrawRectangleV({ rect.x - w * 0.5f, rect.y - h * 0.5f }, { w, h }, color);
+        DrawLineEx(circle, nearest, 5.0f, GOLD);
         EndDrawing();
     }
 
