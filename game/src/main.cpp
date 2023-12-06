@@ -17,11 +17,8 @@ inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 exten
     if (circle.y < yMin) nearest.y = yMin;
     else if (circle.y > yMax) nearest.y = yMax;
 
-    float distance = Length(circle - nearest);
-    bool collision = distance <= radius;
-    if (collision && mtv != nullptr)
-        *mtv = Normalize(circle - rect) * (radius - distance);
-    return collision;
+    return Distance(circle, nearest) <= radius;
+    // Optimization -- return DistanceSqr(circle, nearest) <= radius * radius;
 }
 
 int main(void)
