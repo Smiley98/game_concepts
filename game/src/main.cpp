@@ -3,6 +3,16 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
+// mtv points from plane to circle
+inline bool CirclePlane(Vector2 circle, float radius, Vector2 plane, Vector2 normal, Vector2* mtv = nullptr)
+{
+    float distance = Dot(circle - plane, normal);
+    bool collision = distance <= radius;
+    if (collision && mtv != nullptr)
+        *mtv = normal * (radius - distance);
+    return collision;
+}
+
 // mtv points from rect to circle
 inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 extents, Vector2* mtv = nullptr)
 {
@@ -10,12 +20,7 @@ inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 exten
         Clamp(circle.x, rect.x - extents.x, rect.x + extents.x),
         Clamp(circle.y, rect.y - extents.y, rect.y + extents.y),
     };
-
-    float distance = Distance(circle, nearest);
-    bool collision = distance <= radius;
-    if (collision && mtv != nullptr)
-        *mtv = Normalize(circle - rect) * (radius - distance);
-    return collision;
+    return CirclePlane(circle, radius, nearest, Normalize(circle - nearest), mtv);
 }
 
 int main(void)
@@ -44,7 +49,8 @@ int main(void)
         ClearBackground(RAYWHITE);
         DrawCircleV(circle, r, color);
         DrawRectangleV({ rect.x - w * 0.5f, rect.y - h * 0.5f }, { w, h }, color);
-        DrawLineEx(circle, nearest, 5.0f, GOLD);
+        DrawLineEx(circle, nearest, 5.0f, BLUE);
+        DrawLineEx(nearest, nearest + Normalize(circle - nearest) * Distance(circle, rect) * 0.25f, 5.0f, PURPLE);
         EndDrawing();
     }
 
