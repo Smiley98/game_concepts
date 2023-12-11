@@ -16,10 +16,7 @@ inline bool CirclePlane(Vector2 circle, float radius, Vector2 plane, Vector2 nor
 // mtv points from rect to circle
 inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 extents, Vector2* mtv = nullptr)
 {
-    Vector2 nearest = {
-        Clamp(circle.x, rect.x - extents.x, rect.x + extents.x),
-        Clamp(circle.y, rect.y - extents.y, rect.y + extents.y),
-    };
+    Vector2 nearest = Clamp(circle, rect - extents, rect + extents);
     return CirclePlane(circle, radius, nearest, Normalize(circle - nearest), mtv);
 }
 
