@@ -6,18 +6,7 @@
 // mtv points from rect to circle
 inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 extents, Vector2* mtv = nullptr)
 {
-    Vector2 nearest = circle;
-    float xMin = rect.x - extents.x;
-    float xMax = rect.x + extents.x;
-    float yMin = rect.y - extents.y;
-    float yMax = rect.y + extents.y;
-
-    if (circle.x < xMin) nearest.x = xMin;
-    else if (circle.x > xMax) nearest.x = xMax;
-    if (circle.y < yMin) nearest.y = yMin;
-    else if (circle.y > yMax) nearest.y = yMax;
-
-    return Distance(circle, nearest) <= radius;
+    return Distance(circle, Clamp(circle, rect - extents, rect + extents)) <= radius;
     // Optimization -- return DistanceSqr(circle, nearest) <= radius * radius;
 }
 
