@@ -34,13 +34,10 @@ int main(void)
         const Vector2 rect = GetMousePosition();
 
         Vector2 mtv{};
-        Color color = CircleRect(circle, r, rect, { w * 0.5f, h * 0.5f }, &mtv) ? RED : GREEN;
+        Vector2 extents = { w * 0.5f, h * 0.5f };
+        Vector2 nearest = Clamp(circle, rect - extents, rect + extents);
+        Color color = CircleRect(circle, r, rect, extents, &mtv) ? RED : GREEN;
         circle = circle + mtv;
-
-        Vector2 nearest = {
-            Clamp(circle.x, rect.x - w * 0.5f, rect.x + w * 0.5f),
-            Clamp(circle.y, rect.y - h * 0.5f, rect.y + h * 0.5f),
-        };
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
