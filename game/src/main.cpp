@@ -6,7 +6,8 @@
 // mtv points from rect to circle
 inline bool CircleRect(Vector2 circle, float radius, Vector2 rect, Vector2 extents, Vector2* mtv = nullptr)
 {
-    return Distance(circle, Clamp(circle, rect - extents, rect + extents)) <= radius;
+    Vector2 nearest = Clamp(circle, rect - extents, rect + extents);
+    return Distance(circle, nearest) <= radius;
     // Optimization -- return DistanceSqr(circle, nearest) <= radius * radius;
 }
 
@@ -22,18 +23,9 @@ int main(void)
         const float h = 40.0f;
         const Vector2 circle = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
         const Vector2 rect = GetMousePosition();
-        Color color = CircleRect(circle, r, rect, { w * 0.5f, h * 0.5f }) ? RED : GREEN;
-
-        Vector2 nearest = circle;
-        float xMin = rect.x - w * 0.5f;
-        float xMax = rect.x + w * 0.5f;
-        float yMin = rect.y - h * 0.5f;
-        float yMax = rect.y + h * 0.5f;
-
-        if (circle.x < xMin) nearest.x = xMin;
-        else if (circle.x > xMax) nearest.x = xMax;
-        if (circle.y < yMin) nearest.y = yMin;
-        else if (circle.y > yMax) nearest.y = yMax;
+        Vector2 extents = { w * 0.5f, h * 0.5f };
+        Vector2 nearest = Clamp(circle, rect - extents, rect + extents);
+        Color color = CircleRect(circle, r, rect, extents) ? RED : GREEN;
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
