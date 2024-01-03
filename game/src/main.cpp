@@ -3,13 +3,13 @@
 #include <vector>
 constexpr float SCREEN_WIDTH = 1280.0f;
 constexpr float SCREEN_HEIGHT = 720.0f;
-constexpr float BALL_RADIUS = 0.5f;
-constexpr float PLAYER_WIDTH = 2.0f;
-constexpr float PLAYER_HEIGHT = 1.0f;
 constexpr size_t BRICK_ROWS = 8;
 constexpr size_t BRICK_COLS = 8;
 constexpr float BRICK_WIDTH = SCREEN_WIDTH / (BRICK_COLS + 2);
 constexpr float BRICK_HEIGHT = SCREEN_HEIGHT / (BRICK_ROWS + 4);
+constexpr float PLAYER_WIDTH = BRICK_WIDTH;
+constexpr float PLAYER_HEIGHT = BRICK_HEIGHT;
+constexpr float BALL_RADIUS = 25.0f;
 
 struct Entity;
 using OnCollision = void(*)(Entity& self, Entity& other);
@@ -44,10 +44,10 @@ struct Collider
 
 struct Entity
 {
-    Vector2 pos;
-    Vector2 vel;
-    Vector2 acc;
-    Vector2 force;
+    Vector2 pos{};
+    Vector2 vel{};
+    Vector2 acc{};
+    Vector2 force{};
 
     float gravityScale = 1.0f;
     float invMass = 1.0f;
@@ -248,6 +248,8 @@ Entity CreateBall(Vector2 position)
 int lives = 3;
 int breaks = 0;
 Entity *player, *ball1, *ball2;
+Vector2 ball1Spawn = { BRICK_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+Vector2 ball2Spawn = { SCREEN_WIDTH - BRICK_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
 
 enum GameState
 {
@@ -267,20 +269,20 @@ int main(void)
     player->collider.shape = AABB;
     player->collider.extents = { PLAYER_WIDTH * 0.5f, PLAYER_HEIGHT * 0.5f };
 
-    player->pos = { 0.0f, -9.0f };
+    player->pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT - PLAYER_HEIGHT * 0.5f };
     player->invMass = 0.0f;
     player->gravityScale = 0.0f;
     player->tag = PLAYER;
 
-    entities.push_back(CreateWall({ 0.0f, 10.0f }, { 0.0f, -1.0f }));	// top
-    entities.push_back(CreateWall({ 0.0f, -10.0f }, { 0.0f, 1.0f }));	// bottom
-    entities.push_back(CreateWall({ -10.0f, 0.0f }, { 1.0f, 0.0f }));	// left
-    entities.push_back(CreateWall({ 10.0f, 0.0f }, { -1.0f, 0.0f }));	// right
+    entities.push_back(CreateWall({ 0.0f, 0.0f }, { 0.0f, -1.0f }));	    // top
+    entities.push_back(CreateWall({ 0.0f, SCREEN_HEIGHT }, { 0.0f, 1.0f }));// bottom
+    entities.push_back(CreateWall({ 0.0f, 0.0f }, { 1.0f, 0.0f }));	        // left
+    entities.push_back(CreateWall({ SCREEN_WIDTH, 0.0f }, { -1.0f, 0.0f }));// right
 
-    entities.push_back(CreateBall({ -9.0f, 0.0f }));
+    entities.push_back(CreateBall(ball1Spawn));
     ball1 = &entities.back();
 
-    entities.push_back(CreateBall({ 9.0f, 0.0f }));
+    entities.push_back(CreateBall(ball2Spawn));
     ball2 = &entities.back();
 
     float x, y = SCREEN_HEIGHT - BRICK_HEIGHT * 3.5f;
@@ -322,12 +324,12 @@ int main(void)
             case BALL:
                 DrawCircleV(entity.pos, entity.collider.radius, GRAY);
                 break;
-
+        
             case BRICK:
                 DrawRectangle(x, y, w, h, BLUE);
                 DrawRectangleLines(x, y, w, h, PURPLE);
                 break;
-
+        
             case PLAYER:
                 DrawRectangle(x, y, w, h, GREEN);
                 DrawRectangleLines(x, y, w, h, RED);
@@ -343,8 +345,8 @@ int main(void)
 
 void OnReset()
 {
-    ball1->pos = { -9.0f, 0.0f };
-    ball2->pos = { 9.0f, 0.0f };
+    ball1->pos = ball1Spawn;
+    ball2->pos = ball2Spawn;
     ball1->vel = ball2->vel = { 0.0f, -10.0f };
     ball1->disabled = ball2->disabled = false;
     lives--;
