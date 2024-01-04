@@ -227,6 +227,7 @@ Entity CreateBrick(Vector2 position)
     return brick;
 }
 
+constexpr float ballSpawnSpeed = 500.0f;
 void BallCollisionHandler(Entity& ball, Entity& other);
 Entity CreateBall(Vector2 position)
 {
@@ -235,7 +236,7 @@ Entity CreateBall(Vector2 position)
     ball.collider.radius = BALL_RADIUS;
 
     ball.pos = position;
-    ball.vel = { 0.0f, -10.0f };
+    ball.vel = { 0.0f, ballSpawnSpeed };
     ball.gravityScale = 0.0f;
     ball.invMass = 1.0f;
     ball.restitution = 1.0f;
@@ -248,8 +249,8 @@ Entity CreateBall(Vector2 position)
 int lives = 3;
 int breaks = 0;
 Entity *player, *ball1, *ball2;
-Vector2 ball1Spawn = { BRICK_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-Vector2 ball2Spawn = { SCREEN_WIDTH - BRICK_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+constexpr Vector2 ball1Spawn = { BRICK_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+constexpr Vector2 ball2Spawn = { SCREEN_WIDTH - BRICK_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
 
 enum GameState
 {
@@ -274,8 +275,8 @@ int main(void)
     player->gravityScale = 0.0f;
     player->tag = PLAYER;
 
-    entities.push_back(CreateWall({ 0.0f, 0.0f }, { 0.0f, -1.0f }));	    // top
-    entities.push_back(CreateWall({ 0.0f, SCREEN_HEIGHT }, { 0.0f, 1.0f }));// bottom
+    entities.push_back(CreateWall({ 0.0f, 0.0f }, { 0.0f, 1.0f }));	    // top
+    entities.push_back(CreateWall({ 0.0f, SCREEN_HEIGHT }, { 0.0f, -1.0f }));// bottom
     entities.push_back(CreateWall({ 0.0f, 0.0f }, { 1.0f, 0.0f }));	        // left
     entities.push_back(CreateWall({ SCREEN_WIDTH, 0.0f }, { -1.0f, 0.0f }));// right
 
@@ -301,41 +302,60 @@ int main(void)
     SetTargetFPS(60);
     while (!WindowShouldClose())
     {
-        float speed = 5.0f;
+        float speed = 500.0f;
         Vector2 direction = {};
         if (IsKeyDown(KEY_A))
             direction.x -= 1.0f;
         if (IsKeyDown(KEY_D))
             direction.x += 1.0f;
+        if (IsKeyDown(KEY_SPACE))
+            speed *= 2.0f;
         player->vel = direction * speed;
         Update(GetFrameTime(), entities);
 
         BeginDrawing();
-        ClearBackground(RAYWHITE);
-        for (const Entity& entity : entities)
+        switch (gameState)
         {
-            float w = entity.collider.extents.x * 2.0f;
-            float h = entity.collider.extents.y * 2.0f;
-            float x = entity.pos.x - w * 0.5f;
-            float y = entity.pos.y - h * 0.5f;
-            if (entity.disabled) continue;
-            switch (entity.tag)
+        case PLAY:
+            ClearBackground(RAYWHITE);
+            for (const Entity& entity : entities)
             {
-            case BALL:
-                DrawCircleV(entity.pos, entity.collider.radius, GRAY);
-                break;
-        
-            case BRICK:
-                DrawRectangle(x, y, w, h, BLUE);
-                DrawRectangleLines(x, y, w, h, PURPLE);
-                break;
-        
-            case PLAYER:
-                DrawRectangle(x, y, w, h, GREEN);
-                DrawRectangleLines(x, y, w, h, RED);
-                break;
+                float w = entity.collider.extents.x * 2.0f;
+                float h = entity.collider.extents.y * 2.0f;
+                float x = entity.pos.x - w * 0.5f;
+                float y = entity.pos.y - h * 0.5f;
+                if (entity.disabled) continue;
+                switch (entity.tag)
+                {
+                case BALL:
+                    DrawCircleV(entity.pos, entity.collider.radius, GRAY);
+                    break;
+
+                case BRICK:
+                    DrawRectangle(x, y, w, h, BLUE);
+                    DrawRectangleLines(x, y, w, h, PURPLE);
+                    break;
+
+                case PLAYER:
+                    DrawRectangle(x, y, w, h, GREEN);
+                    DrawRectangleLines(x, y, w, h, RED);
+                    break;
+                }
             }
+            DrawText(TextFormat("Lives: %i", lives), 10, 10, 20, GRAY);
+            break;
+
+        case WIN:
+            ClearBackground(BLUE);
+            DrawText("You won :)", 10, 10, 20, GREEN);
+            break;
+
+        case LOSS:
+            ClearBackground(BLACK);
+            DrawText("You lost :(", 10, 10, 20, RED);
+            break;
         }
+        
         EndDrawing();
     }
 
@@ -347,7 +367,7 @@ void OnReset()
 {
     ball1->pos = ball1Spawn;
     ball2->pos = ball2Spawn;
-    ball1->vel = ball2->vel = { 0.0f, -10.0f };
+    ball1->vel = ball2->vel = { 0.0f, ballSpawnSpeed };
     ball1->disabled = ball2->disabled = false;
     lives--;
     if (lives < 0)
@@ -367,7 +387,7 @@ void BallCollisionHandler(Entity& ball, Entity& other)
     {
         float hw = (SCREEN_WIDTH) * 0.5f - BRICK_WIDTH;
         float hh = BRICK_HEIGHT;
-        if (CircleRect(ball.pos, BALL_RADIUS, { 0.0f, SCREEN_HEIGHT }, { hw, hh }))
+        if (CircleRect(ball.pos, BALL_RADIUS, { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT }, { hw, hh }))
         {
             ball.disabled = true;
         }
