@@ -1,69 +1,83 @@
 #include "rlImGui.h"
 #include "Math.h"
+#include <fstream>
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
 
-// Structure containing kinematics physics data, technically a "Particle".
-// In most game engines, a "Rigidbody" also has a mass and a collider.
-struct Rigidbody
-{
-    Vector2 pos{};
-    Vector2 vel{};
-    Vector2 acc{};
+// Things like primitive data or structures containing only primitive data like this one play nice with binary files.
+// Things that don't play nice with binary files:
+// Pointers
+// Textures
+// Sound
+// Strings
+// (Literally anything that is not a collection of primitive data)
+// 
+// We can solve this by creating 2 different structures -- the "game" version and the "file" version (ie Circle is used in-game but its converted to and from IOCircle)
+// We essentially write do this conversion process every time we use text files cause we need to write position, velocity, acceleration etc values.
+// Binary automatically dumps to and from memory, so binary is still significantly more efficient. Its just we're making an algorithm to convert from binary to simpler binary instead of text to binary/
 
-    Vector2 dir{ 1.0f, 0.0f };  // right
-    float angularSpeed = 0.0f;  // radians
+struct Circle
+{
+    Vector2 position;
+    float radius;
+    Texture* image; // Cannot save/load pointers in binary
 };
 
-// Kinematic physics update
-void Update(Rigidbody& rb, float dt)
+enum ImageType
 {
-    rb.vel = rb.vel + rb.acc * dt;
-    rb.pos = rb.pos + rb.vel * dt + rb.acc * dt * dt * 0.5f;
-    rb.dir = RotateTowards(rb.dir, Normalize(rb.vel), rb.angularSpeed * dt);
-}
 
-Vector2 Seek(Vector2 target, Vector2 seekerPosition, Vector2 seekerVelocity, float speed)
+};
+
+struct IOCircle
 {
-    // From seeker to target with a magnitude (strength) of speed
-    Vector2 desiredVelocity = Normalize(target - seekerPosition) * speed;
+    Vector2 position;
+    float radius;
+    ImageType type; // Can save/load enum in binary, so just load an image in-game based on this type when loading the Circle into the game!
+};
 
-    // Apply difference as an acceleration
-    return desiredVelocity - seekerVelocity;
-}
-
+using namespace std;
 int main(void)
 {
+    Circle circle;
+    circle.position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+    circle.radius = 100.0f;
+
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Game");
     rlImGuiSetup(true);
     SetTargetFPS(60);
 
-    Rigidbody rb;
-    rb.pos = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
-    rb.vel = { 100.0f, 0.0f };
-
-    // User works in degrees, physics works in radians
-    float angularSpeed = 200.0f;
-    rb.angularSpeed = angularSpeed * DEG2RAD;
-    float linearSpeed = 500.0f;
-
     while (!WindowShouldClose())
     {
-        const float dt = GetFrameTime();
-        rb.acc = Seek(GetMousePosition(), rb.pos, rb.vel, linearSpeed);
-        Update(rb, dt);
+        Vector2 mouse = GetMousePosition();
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawCircleV(rb.pos, 25.0f, RED);
-        DrawLineV(rb.pos, rb.pos + rb.dir * 100.0f, BLACK);
+        DrawCircleV(circle.position, circle.radius, RED);
 
         rlImGuiBegin();
-        ImGui::SliderFloat("Linear Speed", &linearSpeed, 0.0f, 1000.0f);
-        if (ImGui::SliderFloat("Angular Speed", &angularSpeed, 0.0f, 360.0f))
-            rb.angularSpeed = angularSpeed * DEG2RAD;
-        rlImGuiEnd();
 
+        if (ImGui::Button("Save"))
+        {
+            circle.position = mouse;
+
+            // If we don't care about revision history when saving, we should truncate (erase) the data so everything is up to date.
+            // (Otherwise we've saved multiple circles to the file and we're reading whichever one is located at the file getter).
+            ofstream file("Binary101.bin", ios::out | ios::binary | ios::trunc);
+            file.write(reinterpret_cast<char*>(&circle), sizeof(Circle));
+            file.close();
+        }
+        if (ImGui::Button("Load"))
+        {
+            ifstream file("Binary101.bin", ios::in | ios::binary);
+            file.read(reinterpret_cast<char*>(&circle), sizeof(Circle));
+            file.close();
+        }
+        if (ImGui::Button("Reset"))
+        {
+            circle.position = { SCREEN_WIDTH * 0.5f, SCREEN_HEIGHT * 0.5f };
+        }
+
+        rlImGuiEnd();
         EndDrawing();
     }
 
