@@ -43,28 +43,29 @@ int Neighbours(int col, int row, Cells cells)
 int main(void)
 {
     InitWindow(SCREEN_SIZE, SCREEN_SIZE, "Game");
-    rlImGuiSetup(true);
     SetTargetFPS(60);
 
     Cells cells;
     memset(cells.data(), 0, GRID_SIZE * GRID_SIZE);
+
     cells[13][14] = true;
     cells[13][15] = true;
     cells[13][16] = true;
 
-    cells[15][14] = true;
-    cells[15][15] = true;
-    cells[15][16] = true;
-    
+    // 3x3 alive cells excluding centre cell
     cells[14][14] = true;
     cells[14][15] = false;
     cells[14][16] = true;
 
+    cells[15][14] = true;
+    cells[15][15] = true;
+    cells[15][16] = true;
+
     while (!WindowShouldClose())
     {
-        for (int row = 0; row < GRID_SIZE; row++)
+        for (int col = 0; col < GRID_SIZE; col++)
         {
-            for (int col = 0; col < GRID_SIZE; col++)
+            for (int row = 0; row < GRID_SIZE; row++)
             {
                 int neighbours = Neighbours(col, row, cells);
                 if (cells[col][row])
@@ -82,20 +83,16 @@ int main(void)
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        for (int row = 0; row < GRID_SIZE; row++)
+        for (int col = 0; col < GRID_SIZE; col++)
         {
-            for (int col = 0; col < GRID_SIZE; col++)
+            for (int row = 0; row < GRID_SIZE; row++)
             {
                 DrawCell(col, row, cells[col][row] ? WHITE : BLACK);
             }
         }
-
-        rlImGuiBegin();
-        rlImGuiEnd();
         EndDrawing();
     }
 
-    rlImGuiShutdown();
     CloseWindow();
     return 0;
 }
