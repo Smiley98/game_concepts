@@ -40,6 +40,8 @@ int Neighbours(int col, int row, Cells cells)
     return neighbours;
 }
 
+Color Palette(int col, int row);
+
 int main(void)
 {
     InitWindow(SCREEN_SIZE, SCREEN_SIZE, "Game");
@@ -87,7 +89,9 @@ int main(void)
         {
             for (int row = 0; row < GRID_SIZE; row++)
             {
-                DrawCell(col, row, cells[col][row] ? WHITE : BLACK);
+                bool alive = cells[col][row];
+                Color color = alive ? Palette(col, row) : BLACK;
+                DrawCell(col, row, color);
             }
         }
         EndDrawing();
@@ -95,4 +99,20 @@ int main(void)
 
     CloseWindow();
     return 0;
+}
+
+Color Palette(int col, int row)
+{
+    constexpr int centre = GRID_SIZE / 2;
+    int x = abs(col - centre);
+    int y = abs(row - centre);
+    int size = x + y;
+
+    if (size < 3) return RED;
+    if (size < 6) return ORANGE;
+    if (size < 9) return YELLOW;
+    if (size < 12) return GREEN;
+    if (size < 15) return BLUE;
+    if (size < 18) return PURPLE;
+    if (size < 21) return WHITE;
 }
